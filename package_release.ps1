@@ -20,10 +20,10 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $distRoot = Join-Path $rootDir "dist"
-$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0-Portavel"
-$zipPath = Join-Path $distRoot "SoulsConflict-v2.0-Portavel.zip"
+$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0-Portable"
+$zipPath = Join-Path $distRoot "SoulsConflict-v2.0-Portable.zip"
 
-Write-Host "[2/4] Preparando estrutura portatil limpa em $pkgFolder..." -ForegroundColor Green
+Write-Host "[2/4] Preparing clean portable structure in $pkgFolder..." -ForegroundColor Green
 
 # Finalizar processos residuais se houver
 Stop-Process -Name 'SoulsConflict', 'souls_conflict' -Force -ErrorAction SilentlyContinue
@@ -51,7 +51,7 @@ Copy-Item $exeSrc $exeDest -Force
 Copy-Item (Join-Path $rootDir "README_NEXUS.txt") (Join-Path $pkgFolder "README.txt") -Force
 Copy-Item (Join-Path $rootDir "mods\HOW_TO_ADD_MODS.txt") (Join-Path $pkgFolder "mods\HOW_TO_ADD_MODS.txt") -Force
 
-Write-Host "[3/4] Compactando pacote final .zip..." -ForegroundColor Green
+Write-Host "[3/4] Compressing final .zip package..." -ForegroundColor Green
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
 
 # Criar pasta temporaria de empacotamento para garantir ZIP 100% puro
@@ -68,11 +68,11 @@ New-Item -ItemType Directory -Path (Join-Path $stageZipDir "vanilla_backup") -Fo
 Compress-Archive -Path "$stageZipDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
 Remove-Item -Recurse -Force $stageZipDir -ErrorAction SilentlyContinue
 
-Write-Host "[4/4] Pacote pronto com sucesso!" -ForegroundColor Cyan
+Write-Host "[4/4] Package ready successfully!" -ForegroundColor Cyan
 $zipSizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 
 Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
-Write-Host "Arquivo ZIP Gerado: $zipPath" -ForegroundColor White
-Write-Host "Tamanho do Pacote: $zipSizeMB MB" -ForegroundColor White
-Write-Host "Pronto para upload na pagina do mod na Nexus Mods!" -ForegroundColor Green
+Write-Host "ZIP File Generated: $zipPath" -ForegroundColor White
+Write-Host "Package Size: $zipSizeMB MB" -ForegroundColor White
+Write-Host "Ready for upload on the Nexus Mods mod page and GitHub Releases!" -ForegroundColor Green
 Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
