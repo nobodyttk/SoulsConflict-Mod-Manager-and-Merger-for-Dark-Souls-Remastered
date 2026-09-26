@@ -60,8 +60,8 @@ To build SoulsConflict from source, you need to have [Rust and Cargo](https://ru
 
 ```bash
 # Clone the repository
-git clone https://github.com/YourUsername/SoulsConflict.git
-cd SoulsConflict
+git clone https://github.com/nobodyttk/SoulsConflict-Mod-Manager-and-Merger-for-Dark-Souls-Remastered.git
+cd SoulsConflict-Mod-Manager-and-Merger-for-Dark-Souls-Remastered
 
 # Build the project in release mode
 cargo build --release
