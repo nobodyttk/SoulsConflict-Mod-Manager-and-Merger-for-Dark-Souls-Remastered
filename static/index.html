@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SoulsConflict - Mod Conflict Checker & Merger</title>
+    <link rel="stylesheet" href="style.css">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@600;700;800&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+</head>
+
+<body>
+    <header class="app-header">
+        <div class="logo-group">
+            <img src="/logo.jpg" class="logo-mark" alt="SC" style="border-radius: 8px; object-fit: cover;">
+            <div>
+                <h1>SoulsConflict</h1>
+                <p class="subtitle" data-i18n="app_subtitle">Mod Conflict Checker & Merger — Dark Souls / FromSoftware
+                </p>
+            </div>
+        </div>
+        <div class="header-actions">
+            <!-- Language Selector -->
+            <div class="lang-selector-box">
+                <select id="langSelect" class="lang-select" aria-label="Select Language">
+                    <option value="en">English</option>
+                    <option value="pt">Português</option>
+                    <option value="it">Italiano</option>
+                    <option value="fr">Français</option>
+                    <option value="ja">日本語</option>
+                    <option value="zh">简体中文</option>
+                </select>
+            </div>
+            <button id="btnOpenRootFolder" class="btn btn-secondary btn-sm" data-i18n="open_mods_folder"
+                data-i18n-title="open_mods_folder_title" title="Open root folder where all mods are stored" style="display: none;">
+                Open Mods Folder
+            </button>
+            <div class="version-badge">v2.0</div>
+        </div>
+    </header>
+
+    <div class="nav-tabs-container">
+        <nav class="main-nav-tabs">
+            <button id="navTabMerge" class="nav-tab active" data-i18n="tab_merge">
+                Diagnostic & Merge
+            </button>
+            <button id="navTabLauncher" class="nav-tab">
+                <span data-i18n="tab_launcher">Launcher & DSR Injection</span>
+                <span class="nav-status-pill pill-vanilla" id="navLauncherStatusPill">Vanilla</span>
+            </button>
+        </nav>
+    </div>
+
+    <main class="container">
+        <!-- View 1: Merge & Conflict Diagnosis -->
+        <div id="viewMergeTab">
+            <!-- Direct Mod Folders Section -->
+            <section class="card config-card">
+                <div class="section-header">
+                    <div>
+                        <h2 data-i18n="load_order_title">Load Order</h2>
+                        <p class="section-desc" data-i18n="load_order_desc">
+                            Add as many mod folders as you want. The order defines priority: the mod at the top has
+                            highest priority.
+                        </p>
+                    </div>
+                    <div class="section-buttons">
+                        <button class="btn btn-primary btn-sm" data-i18n="open_mods_folder" onclick="openFolder('mods')">
+                            Open Mods Folder
+                        </button>
+                        <button id="btnRefreshStatus" class="btn btn-secondary btn-sm" data-i18n="btn_refresh"
+                            data-i18n-title="btn_refresh_title" title="Refresh file counts">
+                            Refresh
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Sleek Mod Rows List -->
+                <div class="mod-rows-list" id="modSlotsGrid">
+                    <!-- Rendered dynamically by app.js -->
+                </div>
+
+                <!-- Merged Output Preview -->
+                <div class="merged-slot-bar">
+                    <div class="merged-info">
+                        <div>
+                            <strong data-i18n="output_folder_label">Output Folder:</strong> <code>merged/</code>
+                            <div class="slot-full-path" id="fullPathMerged">-</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-secondary btn-sm" id="btnOpenMerged" data-i18n="btn_open_folder">
+                        Open Folder
+                    </button>
+                </div>
+
+                <div class="actions-row">
+                    <button id="btnScan" class="btn btn-primary btn-lg" data-i18n="btn_run_diagnostic">
+                        Run Diagnostic
+                    </button>
+                </div>
+            </section>
+
+            <!-- Loading State -->
+            <div id="loadingBox" class="card loading-card hidden">
+                <div class="spinner"></div>
+                <h3 data-i18n="loading_title">Analyzing Mods...</h3>
+                <p data-i18n="loading_desc">Decompressing DCX, matching BND3 tables, FMG text IDs and PARAM parameters.
+                </p>
+            </div>
+
+            <!-- Results Section -->
+            <section id="resultsSection" class="results-section hidden">
+                <!-- Stats Counters -->
+                <div class="stats-grid">
+                    <div class="stat-card stat-total">
+                        <div class="stat-num" id="statTotal">0</div>
+                        <div class="stat-label" data-i18n="stat_analyzed">Files Analyzed</div>
+                    </div>
+                    <div class="stat-card stat-safe">
+                        <div class="stat-num" id="statSafe">0</div>
+                        <div class="stat-label" data-i18n="stat_safe">Fully Safe</div>
+                    </div>
+                    <div class="stat-card stat-mergeable">
+                        <div class="stat-num" id="statMergeable">0</div>
+                        <div class="stat-label" data-i18n="stat_mergeable">Mergeable</div>
+                    </div>
+                    <div class="stat-card stat-conflict">
+                        <div class="stat-num" id="statConflict">0</div>
+                        <div class="stat-label" data-i18n="stat_conflict">Critical Conflicts</div>
+                    </div>
+                </div>
+
+                <!-- Action Bar with 3 Resolution Modes -->
+                <div class="card merge-action-card">
+                    <div class="merge-info">
+                        <h3 data-i18n="ready_merge_title">Ready to Merge</h3>
+                        <p id="mergeMessage" data-i18n="evaluating_msg">Evaluating compatibility of active mods...</p>
+                    </div>
+
+                    <div class="resolution-mode-section">
+                        <label class="mode-header-label" data-i18n="resolution_strategy_label">Resolution
+                            Strategy:</label>
+                        <div class="mode-options-grid">
+                            <label class="mode-option-card active" id="cardModeSmart">
+                                <input type="radio" name="resolutionMode" value="smart" checked>
+                                <div class="mode-option-content">
+                                    <span class="mode-title">
+                                        <span data-i18n="mode_smart_title">Smart Fusion</span>
+                                        <span class="badge-rec" data-i18n="badge_recommended">Recommended</span>
+                                    </span>
+                                    <span class="mode-desc" data-i18n="mode_smart_desc">Automatically detects extended
+                                        versions of scripts and map entities.</span>
+                                </div>
+                            </label>
+                            <label class="mode-option-card" id="cardModePriority">
+                                <input type="radio" name="resolutionMode" value="priority">
+                                <div class="mode-option-content">
+                                    <span class="mode-title" data-i18n="mode_priority_title">Sequential Priority</span>
+                                    <span class="mode-desc" data-i18n="mode_priority_desc">In case of collision, the mod
+                                        higher in the load order wins.</span>
+                                </div>
+                            </label>
+                            <label class="mode-option-card" id="cardModeManual">
+                                <input type="radio" name="resolutionMode" value="manual">
+                                <div class="mode-option-content">
+                                    <span class="mode-title" data-i18n="mode_manual_title">Manual Selection</span>
+                                    <span class="mode-desc" data-i18n="mode_manual_desc">Allows choosing the winning mod
+                                        individually for each conflict.</span>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="merge-controls">
+                        <button id="btnMerge" class="btn btn-gold btn-lg" data-i18n="btn_merge_all">
+                            Merge All Mods
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Filter Tabs -->
+                <div class="filter-tabs">
+                    <button class="tab-btn active" data-filter="all"><span data-i18n="tab_filter_all">All</span> (<span
+                            id="countTabAll">0</span>)</button>
+                    <button class="tab-btn tab-conflict" data-filter="conflict"><span
+                            data-i18n="tab_filter_conflict">Conflicts</span> (<span
+                            id="countTabConflict">0</span>)</button>
+                    <button class="tab-btn tab-mergeable" data-filter="mergeable"><span
+                            data-i18n="tab_filter_mergeable">Mergeable</span> (<span
+                            id="countTabMergeable">0</span>)</button>
+                    <button class="tab-btn tab-safe" data-filter="safe"><span data-i18n="tab_filter_safe">Safe</span>
+                        (<span id="countTabSafe">0</span>)</button>
+                </div>
+
+                <!-- File List -->
+                <div id="fileList" class="file-list"></div>
+            </section>
+        </div><!-- /#viewMergeTab -->
+
+        <!-- View 2: Launcher & Virtual Zero-Overwrite Injection -->
+        <div id="viewLauncherTab" class="hidden">
+            <section class="card launcher-card">
+                <div class="launcher-header">
+                    <div>
+                        <h2 data-i18n="launcher_title">Dark Souls: Remastered Integration</h2>
+                        <p class="section-desc" data-i18n="launcher_desc">
+                            Activate and play your merged mods without permanently altering original game files. Switch
+                            between Modded and Vanilla in 1 click.
+                        </p>
+                    </div>
+                    <div class="game-detected-tag" id="gameDetectedBadge">
+                        <span class="indicator-dot"></span>
+                        <span id="gameDetectedText" data-i18n="checking_status">Checking...</span>
+                    </div>
+                </div>
+
+                <!-- Mode Status Banner -->
+                <div class="launcher-status-banner" id="launcherStatusBanner">
+                    <div class="status-banner-icon" id="bannerStatusIcon">
+                        <svg class="banner-svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2">
+                            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+                        </svg>
+                    </div>
+                    <div class="status-banner-info">
+                        <h3 id="bannerStatusTitle" data-i18n="banner_vanilla_title">VANILLA MODE (ORIGINAL)</h3>
+                        <p id="bannerStatusDesc" data-i18n="banner_vanilla_desc">No game files modified. Factory
+                            installation preserved.</p>
+                        <div class="banner-meta" id="bannerStatusMeta"></div>
+                    </div>
+                    <div class="status-banner-action" id="bannerStatusAction"></div>
+                </div>
+
+                <!-- Active Mods in Fusion Box -->
+                <div class="launcher-mods-box">
+                    <div class="launcher-mods-header">
+                        <div>
+                            <strong data-i18n="active_mods_header">Active Mods in Fusion (Load Order):</strong>
+                            <p class="section-desc" style="margin-top: 2px; font-size: 0.8rem;"
+                                data-i18n="active_mods_desc">
+                                The mod at the top (#1) has highest priority in conflicts.
+                            </p>
+                        </div>
+                        <span class="mods-count-pill" id="launcherModsCountPill">0 Mods</span>
+                    </div>
+                    <div class="launcher-mods-list" id="launcherActiveModsList">
+                        <!-- Populated by JS -->
+                    </div>
+                </div>
+
+                <!-- Game Directory Config -->
+                <div class="game-path-box">
+                    <div class="path-input-group">
+                        <label for="inputGamePath"><strong data-i18n="game_path_label">Dark Souls Remastered
+                                Installation Directory:</strong></label>
+                        <div class="path-controls">
+                            <input type="text" id="inputGamePath" class="input-text"
+                                placeholder="C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED">
+                            <button id="btnSaveGamePath" class="btn btn-secondary btn-sm" data-i18n="btn_save"
+                                data-i18n-title="btn_save_title" title="Save path">Save</button>
+                            <button id="btnOpenGameFolder" class="btn btn-secondary btn-sm" data-i18n="btn_open"
+                                data-i18n-title="btn_open_game_folder_title"
+                                title="Open game folder in Explorer">Open</button>
+                        </div>
+                        <small class="path-hint" data-i18n="game_path_hint">Must point to the folder containing
+                            <code>DarkSoulsRemastered.exe</code>.</small>
+                    </div>
+                </div>
+
+                <!-- Launch Mode Selection Bar -->
+                <div class="launcher-config-bar">
+                    <div class="launch-mode-group">
+                        <label for="selectLaunchMode" class="launch-mode-label" data-i18n="launch_mode_label">
+                            Launch Method:
+                        </label>
+                        <select id="selectLaunchMode" class="launch-mode-select">
+                            <option value="auto" data-i18n="launch_mode_auto">Auto-Detect (Steam / Exe)</option>
+                            <option value="steam" data-i18n="launch_mode_steam">Steam (steam://run/570940)</option>
+                            <option value="direct" data-i18n="launch_mode_direct">Direct Executable (.exe)</option>
+                        </select>
+                        <span id="badgeDetectedMethod" class="badge-detected-method">-</span>
+                    </div>
+                </div>
+
+                <!-- Big Launch & Control Action Row -->
+                <div class="launcher-actions-row" style="display: flex; justify-content: space-between; align-items: center; gap: 1rem; flex-wrap: wrap;">
+                    <div class="launcher-actions-left" style="display: flex; gap: 1rem;">
+                        <button id="btnDeployMods" class="btn btn-gold btn-lg" data-i18n="btn_deploy_mods">
+                            Deploy Mods to Game
+                        </button>
+                        <button id="btnRestoreVanilla" class="btn btn-secondary btn-lg" disabled
+                            data-i18n="btn_restore_vanilla">
+                            Restore Vanilla
+                        </button>
+                    </div>
+                    <div class="launcher-actions-right" style="display: flex; gap: 1rem;">
+                        <button id="btnLaunchSeamless" class="btn btn-primary btn-lg btn-play" data-i18n="btn_launch_seamless" style="background: var(--gold); color: #000;">
+                            Launch DS1 Seamless Co-op
+                        </button>
+                        <button id="btnLaunchGame" class="btn btn-primary btn-lg btn-play" data-i18n="btn_launch_game">
+                            Launch DS1
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Deployed Files Report Section -->
+            <section class="card deployed-files-card">
+                <div class="section-header">
+                    <div>
+                        <h3><span data-i18n="injected_files_title">Injected Files</span> (<span
+                                id="deployedFilesCount">0</span>)</h3>
+                        <p class="section-desc" data-i18n="injected_files_desc">Merged files active in game folder with
+                            safe backup.</p>
+                    </div>
+                    <button id="btnRefreshDeployer" class="btn btn-secondary btn-sm" data-i18n="btn_refresh">
+                        Refresh
+                    </button>
+                </div>
+                <div id="deployedFilesList" class="deployed-files-list"></div>
+            </section>
+        </div><!-- /#viewLauncherTab -->
+    </main>
+
+    <!-- Custom Themed Modal Dialog (Replaces native alert/confirm/prompt) -->
+    <div id="customModalOverlay" class="custom-modal-overlay hidden" role="dialog" aria-modal="true">
+        <div class="custom-modal-box">
+            <div class="custom-modal-header">
+                <div class="custom-modal-title-group">
+                    <span class="custom-modal-icon" id="customModalIcon"></span>
+                    <h3 class="custom-modal-title" id="customModalTitle">SoulsConflict</h3>
+                </div>
+            </div>
+            <div class="custom-modal-body">
+                <p id="customModalMessage" class="custom-modal-message"></p>
+                <input type="text" id="customModalInput" class="input-text custom-modal-input hidden" spellcheck="false"
+                    autocomplete="off" />
+            </div>
+            <div class="custom-modal-footer">
+                <button type="button" id="customModalCancelBtn" class="btn btn-secondary btn-sm hidden">Cancel</button>
+                <button type="button" id="customModalOkBtn" class="btn btn-primary btn-sm">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>

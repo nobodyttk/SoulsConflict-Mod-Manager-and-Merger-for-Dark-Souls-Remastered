@@ -1,0 +1,11 @@
+/target
+/dist
+/mods
+/merged
+
+# Configurações do deployer se existirem
+config.json
+
+# IDE
+.vscode/
+.idea/
