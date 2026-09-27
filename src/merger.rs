@@ -60,8 +60,6 @@ impl Merger {
 
         let out_dir_str = if req.output_dir.trim().is_empty() { "merged" } else { req.output_dir.trim() };
         let out_path = Path::new(out_dir_str);
-        fs::create_dir_all(out_path).map_err(|e| format!("Could not create output directory: {}", e))?;
-
         let mut mod_files: Vec<(String, HashMap<String, PathBuf>)> = Vec::new();
         for m in &mods_to_merge {
             let p = Path::new(&m.path);
@@ -71,6 +69,21 @@ impl Merger {
             let files = Self::list_files(p)?;
             mod_files.push((m.name.clone(), files));
         }
+
+        // Clean previous output directory contents so removed mods don't leave stale files
+        if out_path.exists() {
+            if let Ok(entries) = fs::read_dir(out_path) {
+                for entry in entries.filter_map(|e| e.ok()) {
+                    let p = entry.path();
+                    if p.is_dir() {
+                        let _ = fs::remove_dir_all(&p);
+                    } else {
+                        let _ = fs::remove_file(&p);
+                    }
+                }
+            }
+        }
+        fs::create_dir_all(out_path).map_err(|e| format!("Could not create output directory: {}", e))?;
 
         let mut all_rel: HashSet<String> = HashSet::new();
         for (_, files) in &mod_files {
