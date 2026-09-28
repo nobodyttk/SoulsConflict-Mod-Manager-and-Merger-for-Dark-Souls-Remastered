@@ -1,0 +1,189 @@
+==================================================================================
+                 SOULSCONFLICT - HOW TO ADD & ORGANIZE MODS
+==================================================================================
+
+----------------------------------------------------------------------------------
+[EN] HOW TO INSTALL & ORGANIZE MODS
+----------------------------------------------------------------------------------
+1. EACH MOD MUST RESIDE IN ITS OWN SUBFOLDER INSIDE THIS "mods" DIRECTORY:
+   Example:
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (Option 1)
+     │     └── 0.2 no dash\   (Option 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. TIPS FOR NEXUS MODS:
+   - When downloading a .zip or .7z from Nexus Mods, extract its contents into a
+     new folder inside "mods" (e.g. "mods/MyMod").
+   - Do not worry about nested folders (e.g. "MyMod/v1.0/chr"). SoulsConflict
+     automatically detects and unwraps them!
+   - If a mod offers multiple choices (such as "Hardcore" vs "Standard"),
+     SoulsConflict will display a visual variant selector in the interface.
+
+3. HOW TO USE IN SOULSCONFLICT:
+   - Launch SoulsConflict.exe.
+   - All your mod folders will appear in the load order automatically.
+   - Adjust priority (the mod on top wins in case of file collisions).
+   - Click "Run Diagnostic", then click "Merge All Mods".
+   - Go to "Launcher & DSR Injection" tab and click "Deploy Mods to Game"!
+
+
+----------------------------------------------------------------------------------
+[PT] COMO INSTALAR E ORGANIZAR MODS
+----------------------------------------------------------------------------------
+1. CADA MOD DEVE FICAR EM SUA PROPRIA SUBPASTA DENTRO DESTA PASTA "mods":
+   Exemplo:
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (Opcao 1)
+     │     └── 0.2 no dash\   (Opcao 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. DICAS PARA MODS DA NEXUS MODS:
+   - Ao baixar um arquivo .zip ou .7z na Nexus Mods, extraia o conteudo para
+     uma nova pasta dentro de "mods" (ex: "mods/MeuMod").
+   - Nao se preocupe com pastas aninhadas (ex: "MeuMod/v1.0/chr"). O SoulsConflict
+     detecta e organiza tudo automaticamente!
+   - Se o mod possuir variantes de instalacao ("Hardcore", "Standard"), um menu
+     de selecao aparecera na interface do aplicativo.
+
+3. COMO USAR NO APLICATIVO:
+   - Execute o SoulsConflict.exe.
+   - Seus mods aparecerao na lista de carregamento automaticamente.
+   - Ordene a prioridade (o mod do topo tem prioridade maxima em conflitos).
+   - Clique em "Executar Diagnostico", depois em "Mesclar Todos os Mods".
+   - Va na aba "Launcher & Injecao DSR" e clique em "Ativar Mods no Jogo"!
+
+
+----------------------------------------------------------------------------------
+[IT] COME INSTALLARE E ORGANIZZARE LE MOD
+----------------------------------------------------------------------------------
+1. OGNI MOD DEVE ESSERE INSERITA NELLA PROPRIA SOTTOCARTELLA DENTRO "mods":
+   Esempio:
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (Opzione 1)
+     │     └── 0.2 no dash\   (Opzione 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. SUGGERIMENTI PER LE MOD DI NEXUS MODS:
+   - Quando scarichi un file .zip o .7z da Nexus Mods, estrai il contenuto in
+     una nuova cartella dentro "mods" (es. "mods/MiaMod").
+   - Non preoccuparti delle cartelle nidificate (es. "MiaMod/v1.0/chr").
+     SoulsConflict rileva e organizza la struttura automaticamente!
+   - Se una mod offre diverse varianti ("Hardcore", "Standard"), comparira
+     un menu a tendina dedicato nell'interfaccia.
+
+3. COME PROCEDERE NELL'APPLICAZIONE:
+   - Avvia SoulsConflict.exe.
+   - Le tue mod appariranno automaticamente nell'elenco.
+   - Regola la priorita (la mod in alto prevale in caso di conflitti).
+   - Fai clic su "Esegui Diagnostica", poi su "Unisci Tutte le Mod".
+   - Vai alla scheda "Launcher & Iniezione DSR" e clicca su "Attiva Mod nel Gioco"!
+
+
+----------------------------------------------------------------------------------
+[FR] COMMENT INSTALLER ET ORGANISER LES MODS
+----------------------------------------------------------------------------------
+1. CHAQUE MOD DOIT ETRE PLACE DANS SON PROPRE SOUS-DOSSIER DANS "mods" :
+   Exemple :
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (Option 1)
+     │     └── 0.2 no dash\   (Option 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. CONSEILS POUR LES MODS NEXUS MODS :
+   - Lorsque vous telechargez un fichier .zip ou .7z sur Nexus Mods, extrayez son
+     contenu dans un nouveau dossier dans "mods" (ex. "mods/MonMod").
+   - Ne vous souciez pas des dossiers imbriques (ex. "MonMod/v1.0/chr").
+     SoulsConflict les detecte et les resout automatiquement !
+   - Si un mod propose plusieurs variantes ("Hardcore", "Standard"), un selecteur
+     apparaitra directement dans l'interface.
+
+3. UTILISATION DANS L'APPLICATION :
+   - Lancez SoulsConflict.exe.
+   - Vos mods apparaitront automatiquement dans la liste de chargement.
+   - Ajustez la priorite (le mod tout en haut est prioritaire en cas de conflit).
+   - Cliquez sur "Lancer le Diagnostic", puis sur "Fusionner Tous les Mods".
+   - Allez dans l'onglet "Lanceur & Injection DSR" et cliquez sur "Activer les Mods dans le Jeu" !
+
+
+----------------------------------------------------------------------------------
+[JA] MODのインストールと整理方法
+----------------------------------------------------------------------------------
+1. 各Modは必ずこの「mods」フォルダ内の個別サブフォルダに配置してください:
+   例:
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (選択肢 1)
+     │     └── 0.2 no dash\   (選択肢 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. NEXUS MODS利用時のヒント:
+   - Nexus Modsから.zipや.7zをダウンロードしたら、「mods」内に新規フォルダ
+     を作成して中身を展開してください (例: "mods/MyMod")。
+   - フォルダが多重構造になっていても (例: "MyMod/v1.0/chr")、
+     SoulsConflictが自動で解析して正規フォルダを検出します。
+   - バリアント (難易度別やオプション別) がある場合、画面上で選択できます。
+
+3. アプリケーションでの操作手順:
+   - SoulsConflict.exe を起動します。
+   - フォルダ内のModが自動的にロード順リストに表示されます。
+   - 優先度を並び替えます (最上位のModが競合時に優先されます)。
+   - 「診断を実行」をクリックし、その後「すべてのModを統合」をクリックします。
+   - 「ランチャー & DSR適用」タブに移動し、「ゲームにModを適用」をクリックします！
+
+
+----------------------------------------------------------------------------------
+[ZH] 模组安装与管理指南
+----------------------------------------------------------------------------------
+1. 每个模组必须放置在此 "mods" 目录下的独立子文件夹中:
+   示例:
+   mods\
+     ├── Mod_Cinders\
+     │     ├── chr\
+     │     └── param\
+     ├── Mod_BetterRolling\
+     │     ├── 0.2 bb dash\   (分支选项 1)
+     │     └── 0.2 no dash\   (分支选项 2)
+     └── Mod_Ascension\
+           └── event\
+
+2. NEXUS MODS 使用提示:
+   - 从 Nexus Mods 下载 .zip 或 .7z 压缩包后，将其解压至 "mods" 目录下的
+     新文件夹中 (例如 "mods/MyMod")。
+   - 无需担心多层嵌套目录 (例如 "MyMod/v1.0/chr")，SoulsConflict 会自动
+     深入扫描并识别标准游戏路径！
+   - 如果模组包含多种可选版本 (如 "Hardcore" / "Standard")，程序界面会自动
+     生成版本下拉选择器。
+
+3. 在软件中的操作流程:
+   - 双击运行 SoulsConflict.exe。
+   - 模组将自动识别并加载到列表中。
+   - 调整加载顺序 (排在最上方的模组在冲突时拥有最高保留优先级)。
+   - 点击“执行诊断”，然后点击“合并所有模组”。
+   - 切换到“启动器与DSR注入”选项卡，点击“在游戏中启用模组”即可！
+
+==================================================================================

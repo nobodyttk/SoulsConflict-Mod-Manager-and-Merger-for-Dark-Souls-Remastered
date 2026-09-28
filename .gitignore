@@ -1,7 +1,9 @@
 /target
 /dist
-/mods
+/mods/*
+!/mods/HOW_TO_ADD_MODS.txt
 /merged
+github/
 
 # Configurações do deployer se existirem
 config.json

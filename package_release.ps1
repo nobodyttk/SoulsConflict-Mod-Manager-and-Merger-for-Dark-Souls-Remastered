@@ -72,7 +72,10 @@ if ($cert) {
 
 # Copy manuals and instructions
 Copy-Item (Join-Path $rootDir "README_NEXUS.txt") (Join-Path $pkgFolder "README.txt") -Force
-Copy-Item (Join-Path $rootDir "mods\HOW_TO_ADD_MODS.txt") (Join-Path $pkgFolder "mods\HOW_TO_ADD_MODS.txt") -Force
+$howToPath = Join-Path $rootDir "mods\HOW_TO_ADD_MODS.txt"
+if (Test-Path $howToPath) {
+    Copy-Item $howToPath (Join-Path $pkgFolder "mods\HOW_TO_ADD_MODS.txt") -Force
+}
 
 Write-Host "[3/4] Compressing final .zip package..." -ForegroundColor Green
 if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
