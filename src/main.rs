@@ -155,7 +155,7 @@ fn main() {
     let url = format!("http://127.0.0.1:{}", port);
     println!("============================================================");
     println!("   🔥 SoulsConflict - Mod Conflict Checker & Merger        ");
-    println!("   Version: v2.0 • Running in Native Window (Portable)     ");
+    println!("   Version: v2.0.2 • Running in Native Window (Portable)     ");
     println!("   Base Folder: {}", base_dir.display());
     println!("   Local server running at: {}", url);
     println!("   Close the window to terminate the application           ");

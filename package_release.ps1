@@ -20,8 +20,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $distRoot = Join-Path $rootDir "dist"
-$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0-Portable"
-$zipPath = Join-Path $distRoot "SoulsConflict-v2.0-Portable.zip"
+$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0.2-Portable"
+$zipPath = Join-Path $distRoot "SoulsConflict-v2.0.2-Portable.zip"
 
 Write-Host "[2/4] Preparing clean portable structure in $pkgFolder..." -ForegroundColor Green
 
