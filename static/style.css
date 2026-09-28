@@ -1595,3 +1595,9 @@ h1 {
     padding-top: 12px;
     border-top: 1px solid rgba(255, 255, 255, 0.05);
 }
+
+.config-card.dragover-active {
+    outline: 2px dashed var(--gold, #c5a059);
+    outline-offset: -2px;
+    background: rgba(197, 160, 89, 0.08) !important;
+}

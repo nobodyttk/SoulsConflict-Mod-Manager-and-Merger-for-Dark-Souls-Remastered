@@ -4,6 +4,7 @@ mod formats;
 mod scanner;
 mod merger;
 mod deployer;
+mod archive;
 
 use std::fs;
 use std::io::{Read, Write};
@@ -228,7 +229,7 @@ fn count_files_recursive(dir: &Path) -> usize {
     count
 }
 
-fn is_canonical_game_dir(name: &str) -> bool {
+pub fn is_canonical_game_dir(name: &str) -> bool {
     matches!(
         name,
         "chr" | "parts" | "obj" | "event" | "map" | "param" | "script" | "msg" | "ffx" | "menu" | "sound" | "action" | "sfx" | "font" | "facegen"
@@ -374,6 +375,27 @@ fn fix_mod_structure_internal(dir: &Path) -> Result<FixModResult, String> {
     })
 }
 
+pub fn auto_organize_mod_if_needed(dir: &Path) -> usize {
+    if !dir.exists() {
+        return 0;
+    }
+    let variants = detect_variants(dir);
+    let total = if !variants.is_empty() {
+        let mut count = 0;
+        for v in &variants {
+            let v_path = dir.join(v);
+            count += reorganize_folder_files(&v_path).unwrap_or(0);
+        }
+        count
+    } else {
+        reorganize_folder_files(dir).unwrap_or(0)
+    };
+    if total > 0 {
+        println!("[Auto-Organize] Reorganized {} loose/misplaced file(s) in '{}' into canonical DS1 folders.", total, dir.display());
+    }
+    total
+}
+
 fn reorganize_folder_files(target_dir: &Path) -> Result<usize, String> {
     let mut files_to_move: Vec<(PathBuf, PathBuf)> = Vec::new();
     collect_files_to_reorganize(target_dir, target_dir, &mut files_to_move)?;
@@ -475,21 +497,53 @@ fn get_all_mod_folders() -> Vec<FolderInfo> {
     let mut list = Vec::new();
 
     if let Ok(entries) = fs::read_dir(&mods_dir) {
-        let mut dirs: Vec<_> = entries
-            .filter_map(|e| e.ok())
-            .filter(|e| e.path().is_dir())
-            .collect();
-
-        dirs.sort_by_key(|e| e.file_name());
-
-        for entry in dirs {
-            let folder_name = entry.file_name().to_string_lossy().to_string();
-            // Ignore hidden or internal folders if any
-            if folder_name.starts_with('.') {
-                continue;
+        // Detect any loose archives (.zip, .rar, .7z) placed directly in mods/
+        let mut archives = Vec::new();
+        for entry in entries.filter_map(|e| e.ok()) {
+            let p = entry.path();
+            if p.is_file() {
+                if let Some(ext) = p.extension().and_then(|s| s.to_str()) {
+                    let ext_lower = ext.to_lowercase();
+                    if ext_lower == "zip" || ext_lower == "rar" || ext_lower == "7z" {
+                        archives.push(p);
+                    }
+                }
             }
-            let rel_path = format!("mods/{}", folder_name);
-            list.push(build_folder_info(&folder_name, &folder_name, &rel_path));
+        }
+
+        // Auto-extract any loose archives into their own mod folder named after the archive
+        for arch in archives {
+            let file_stem = arch.file_stem().unwrap_or_default().to_string_lossy().to_string();
+            println!("[Archive] Found archive in mods/: '{}'. Auto-extracting into native mod folder...", arch.display());
+            match crate::archive::import_mod_archive(&arch, &mods_dir) {
+                Ok((folder_name, count)) => {
+                    println!("[Archive] Successfully extracted '{}' ({} files) into 'mods/{}'. Removing archive file.", file_stem, count, folder_name);
+                    let _ = fs::remove_file(&arch);
+                }
+                Err(e) => {
+                    eprintln!("[Archive] Failed to auto-extract archive '{}': {}", arch.display(), e);
+                }
+            }
+        }
+
+        // Now process directories in mods/
+        if let Ok(dir_entries) = fs::read_dir(&mods_dir) {
+            let mut dirs: Vec<_> = dir_entries
+                .filter_map(|e| e.ok())
+                .filter(|e| e.path().is_dir())
+                .collect();
+
+            dirs.sort_by_key(|e| e.file_name());
+
+            for entry in dirs {
+                let folder_name = entry.file_name().to_string_lossy().to_string();
+                // Ignore hidden or internal folders if any
+                if folder_name.starts_with('.') {
+                    continue;
+                }
+                let rel_path = format!("mods/{}", folder_name);
+                list.push(build_folder_info(&folder_name, &folder_name, &rel_path));
+            }
         }
     }
 
@@ -509,26 +563,115 @@ fn next_available_mod_name() -> String {
     format!("Mod_{}", std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_secs())
 }
 
-fn handle_client(mut stream: TcpStream) {
-    let mut buffer = [0u8; 8192];
-    let bytes_read = match stream.read(&mut buffer) {
-        Ok(n) if n > 0 => n,
-        _ => return,
+fn find_subslice(haystack: &[u8], needle: &[u8]) -> Option<usize> {
+    haystack.windows(needle.len()).position(|window| window == needle)
+}
+
+fn read_http_request(stream: &mut TcpStream) -> Result<(String, String, String, Vec<u8>), std::io::Error> {
+    let mut buf = Vec::with_capacity(16384);
+    let mut temp = [0u8; 65536];
+    let mut header_end = None;
+
+    let _ = stream.set_read_timeout(Some(std::time::Duration::from_secs(60)));
+
+    while header_end.is_none() {
+        let n = match stream.read(&mut temp) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) => return Err(e),
+        };
+        buf.extend_from_slice(&temp[..n]);
+        if let Some(pos) = find_subslice(&buf, b"\r\n\r\n") {
+            header_end = Some(pos);
+            break;
+        }
+    }
+
+    let header_pos = match header_end {
+        Some(pos) => pos,
+        None => return Err(std::io::Error::new(std::io::ErrorKind::UnexpectedEof, "Incomplete headers")),
     };
 
-    let request = String::from_utf8_lossy(&buffer[..bytes_read]);
-    let mut lines = request.lines();
+    let header_bytes = &buf[..header_pos];
+    let header_str = String::from_utf8_lossy(header_bytes);
+    
+    let mut lines = header_str.lines();
     let first_line = lines.next().unwrap_or("");
     let parts: Vec<&str> = first_line.split_whitespace().collect();
-
     if parts.len() < 2 {
+        return Err(std::io::Error::new(std::io::ErrorKind::InvalidData, "Invalid HTTP first line"));
+    }
+    let method = parts[0].to_uppercase();
+    let path = parts[1].to_string();
+
+    let mut content_length: usize = 0;
+    for line in lines {
+        let lower = line.to_lowercase();
+        if lower.starts_with("content-length:") {
+            if let Some(val_str) = line.split(':').nth(1) {
+                if let Ok(val) = val_str.trim().parse::<usize>() {
+                    content_length = val;
+                }
+            }
+        }
+    }
+
+    let mut body_bytes = buf[header_pos + 4..].to_vec();
+    while body_bytes.len() < content_length {
+        let to_read = (content_length - body_bytes.len()).min(temp.len());
+        let n = match stream.read(&mut temp[..to_read]) {
+            Ok(0) => break,
+            Ok(n) => n,
+            Err(e) => return Err(e),
+        };
+        body_bytes.extend_from_slice(&temp[..n]);
+    }
+
+    let body_str = if path.starts_with("/api/import_mod_archive") {
+        String::new()
+    } else {
+        String::from_utf8_lossy(&body_bytes).to_string()
+    };
+
+    Ok((method, path, body_str, body_bytes))
+}
+
+fn url_decode(s: &str) -> String {
+    let mut result = Vec::new();
+    let bytes = s.as_bytes();
+    let mut i = 0;
+    while i < bytes.len() {
+        if bytes[i] == b'%' && i + 2 < bytes.len() {
+            if let Ok(byte) = u8::from_str_radix(std::str::from_utf8(&bytes[i + 1..i + 3]).unwrap_or(""), 16) {
+                result.push(byte);
+                i += 3;
+                continue;
+            }
+        } else if bytes[i] == b'+' {
+            result.push(b' ');
+            i += 1;
+            continue;
+        }
+        result.push(bytes[i]);
+        i += 1;
+    }
+    String::from_utf8_lossy(&result).to_string()
+}
+
+fn handle_client(mut stream: TcpStream) {
+    let (method, path, body, body_bytes) = match read_http_request(&mut stream) {
+        Ok(req) => req,
+        Err(_) => return,
+    };
+
+    if method == "OPTIONS" {
+        send_response(&mut stream, "204 No Content", "text/plain", b"");
         return;
     }
 
-    let method = parts[0];
-    let path = parts[1];
+    let request = &body;
 
-    match (method, path) {
+    match (method.as_str(), path.as_str()) {
         ("GET", "/") => {
             send_response(&mut stream, "200 OK", "text/html; charset=utf-8", HTML_CONTENT.as_bytes());
         }
@@ -549,6 +692,70 @@ fn handle_client(mut stream: TcpStream) {
             };
             let json = serde_json::to_string(&status).unwrap();
             send_response(&mut stream, "200 OK", "application/json", json.as_bytes());
+        }
+        ("POST", p) if p.starts_with("/api/import_mod_archive") => {
+            let filename = if let Some(q_pos) = p.find('?') {
+                let query = &p[q_pos + 1..];
+                query.split('&')
+                    .find_map(|pair| {
+                        let mut parts = pair.splitn(2, '=');
+                        let k = parts.next()?;
+                        let v = parts.next()?;
+                        if k == "name" {
+                            Some(url_decode(v))
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| "imported_mod.zip".to_string())
+            } else {
+                "imported_mod.zip".to_string()
+            };
+
+            let base_dir = get_app_dir();
+            let mods_dir = base_dir.join("mods");
+            let _ = fs::create_dir_all(&mods_dir);
+
+            if body_bytes.is_empty() {
+                let resp = serde_json::json!({ "success": false, "message": "Uploaded archive file is empty." });
+                send_response(&mut stream, "400 Bad Request", "application/json", resp.to_string().as_bytes());
+            } else {
+                let ext = Path::new(&filename)
+                    .extension()
+                    .and_then(|e| e.to_str())
+                    .unwrap_or("zip");
+                let clean_name = crate::archive::sanitize_folder_name(&filename);
+                let temp_name = format!(
+                    "mod_import_{}_{}.{}",
+                    std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).unwrap().as_millis(),
+                    clean_name,
+                    ext
+                );
+                let temp_path = std::env::temp_dir().join(&temp_name);
+
+                if let Err(e) = fs::write(&temp_path, &body_bytes) {
+                    let resp = serde_json::json!({ "success": false, "message": format!("Failed to buffer archive: {}", e) });
+                    send_response(&mut stream, "500 Internal Server Error", "application/json", resp.to_string().as_bytes());
+                } else {
+                    match crate::archive::import_mod_archive_named(&temp_path, &mods_dir, Some(&filename)) {
+                        Ok((mod_name, count)) => {
+                            let _ = fs::remove_file(&temp_path);
+                            let resp = serde_json::json!({
+                                "success": true,
+                                "mod_name": mod_name,
+                                "extracted_count": count,
+                                "message": format!("Mod '{}' imported successfully ({} files organized).", mod_name, count)
+                            });
+                            send_response(&mut stream, "200 OK", "application/json", resp.to_string().as_bytes());
+                        }
+                        Err(e) => {
+                            let _ = fs::remove_file(&temp_path);
+                            let resp = serde_json::json!({ "success": false, "message": e });
+                            send_response(&mut stream, "400 Bad Request", "application/json", resp.to_string().as_bytes());
+                        }
+                    }
+                }
+            }
         }
         ("POST", "/api/create_mod_folder") => {
             let body = extract_body(&request);
@@ -838,7 +1045,7 @@ fn extract_body(request: &str) -> String {
     } else if let Some(pos) = request.find("\n\n") {
         request[pos + 2..].to_string()
     } else {
-        String::new()
+        request.to_string()
     }
 }
 

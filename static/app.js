@@ -18,6 +18,9 @@ const TRANSLATIONS = {
         btn_add_mod: "Add Mod",
         btn_refresh: "Refresh",
         btn_refresh_title: "Refresh file counts",
+        btn_import_archive: "Import Mod (.zip / .rar)",
+        alert_err_not_archive: "Please select or drop a valid mod archive (.zip, .rar, or .7z).",
+        uploading_archive_progress: "Extracting and importing mod '{name}' natively...",
         output_folder_label: "Output Folder:",
         btn_open_folder: "Open Folder",
         btn_run_diagnostic: "Run Diagnostic",
@@ -152,6 +155,9 @@ const TRANSLATIONS = {
         btn_add_mod: "Adicionar Mod",
         btn_refresh: "Atualizar",
         btn_refresh_title: "Recarregar contagem de arquivos",
+        btn_import_archive: "Importar Mod (.zip / .rar)",
+        alert_err_not_archive: "Por favor, selecione ou arraste um arquivo de mod válido (.zip, .rar ou .7z).",
+        uploading_archive_progress: "Extraindo e importando mod '{name}' nativamente...",
         output_folder_label: "Pasta de Saída:",
         btn_open_folder: "Abrir Pasta",
         btn_run_diagnostic: "Executar Diagnóstico",
@@ -286,6 +292,9 @@ const TRANSLATIONS = {
         btn_add_mod: "Aggiungi Mod",
         btn_refresh: "Aggiorna",
         btn_refresh_title: "Ricarica il conteggio dei file",
+        btn_import_archive: "Importa Mod (.zip / .rar)",
+        alert_err_not_archive: "Seleziona o trascina un archivio mod valido (.zip, .rar o .7z).",
+        uploading_archive_progress: "Estrazione e importazione mod '{name}' nativamente...",
         output_folder_label: "Cartella di Uscita:",
         btn_open_folder: "Apri Cartella",
         btn_run_diagnostic: "Esegui Diagnostica",
@@ -418,6 +427,9 @@ const TRANSLATIONS = {
         btn_add_mod: "Ajouter Mod",
         btn_refresh: "Actualiser",
         btn_refresh_title: "Actualiser le décompte des fichiers",
+        btn_import_archive: "Importer un Mod (.zip / .rar)",
+        alert_err_not_archive: "Veuillez sélectionner ou déposer une archive de mod valide (.zip, .rar ou .7z).",
+        uploading_archive_progress: "Extraction et importation du mod '{name}'...",
         output_folder_label: "Dossier de Sortie :",
         btn_open_folder: "Ouvrir Dossier",
         btn_run_diagnostic: "Lancer le Diagnostic",
@@ -550,6 +562,9 @@ const TRANSLATIONS = {
         btn_add_mod: "Modを追加",
         btn_refresh: "更新",
         btn_refresh_title: "ファイル数を再読み込み",
+        btn_import_archive: "Modをインポート (.zip / .rar)",
+        alert_err_not_archive: "有効なModアーカイブ (.zip, .rar, .7z) を選択またはドロップしてください。",
+        uploading_archive_progress: "Mod '{name}' をネイティブ展開してインポート中...",
         output_folder_label: "出力フォルダ:",
         btn_open_folder: "フォルダを開く",
         btn_run_diagnostic: "診断を実行",
@@ -682,6 +697,9 @@ const TRANSLATIONS = {
         btn_add_mod: "添加模组",
         btn_refresh: "刷新",
         btn_refresh_title: "重新加载文件计数",
+        btn_import_archive: "导入模组 (.zip / .rar)",
+        alert_err_not_archive: "请选择或拖放有效的模组压缩包 (.zip, .rar 或 .7z)。",
+        uploading_archive_progress: "正在解压并导入模组 '{name}'...",
         output_folder_label: "输出目录:",
         btn_open_folder: "打开文件夹",
         btn_run_diagnostic: "执行诊断",
@@ -1032,6 +1050,54 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     });
 
+    const btnImportModArchive = document.getElementById('btnImportModArchive');
+    const inputModArchive = document.getElementById('inputModArchive');
+    if (btnImportModArchive && inputModArchive) {
+        btnImportModArchive.addEventListener('click', () => {
+            inputModArchive.click();
+        });
+        inputModArchive.addEventListener('change', async (e) => {
+            if (e.target.files && e.target.files.length > 0) {
+                await uploadModArchives(e.target.files);
+                inputModArchive.value = '';
+            }
+        });
+    }
+
+    // Drag-and-drop archive support (.zip, .rar, .7z) on config-card
+    const configCard = document.querySelector('.config-card');
+    if (configCard) {
+        ['dragenter', 'dragover'].forEach(eventName => {
+            configCard.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configCard.classList.add('dragover-active');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            configCard.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                configCard.classList.remove('dragover-active');
+            }, false);
+        });
+
+        configCard.addEventListener('drop', async (e) => {
+            const dt = e.dataTransfer;
+            const files = dt && dt.files;
+            if (files && files.length > 0) {
+                const archiveFiles = Array.from(files).filter(f => {
+                    const ext = f.name.split('.').pop().toLowerCase();
+                    return ext === 'zip' || ext === 'rar' || ext === '7z';
+                });
+                if (archiveFiles.length > 0) {
+                    await uploadModArchives(archiveFiles);
+                }
+            }
+        });
+    }
+
     // Main Navigation Tabs
     const navTabMerge = document.getElementById('navTabMerge');
     const navTabLauncher = document.getElementById('navTabLauncher');
@@ -1289,6 +1355,65 @@ async function deleteModFolder(id) {
         }
     } catch (e) {
         await showCustomAlert(t('alert_err_generic', { msg: e.message }), t('modal_title_error'));
+    }
+}
+
+async function uploadModArchives(files) {
+    if (!files || files.length === 0) return;
+
+    const fileList = Array.from(files);
+    let importedCount = 0;
+
+    for (let i = 0; i < fileList.length; i++) {
+        const file = fileList[i];
+        const ext = file.name.split('.').pop().toLowerCase();
+        if (ext !== 'zip' && ext !== 'rar' && ext !== '7z') {
+            await showCustomAlert(t('alert_err_not_archive') || `File '${file.name}' is not a supported mod archive (.zip, .rar, .7z).`, t('modal_title_error'));
+            continue;
+        }
+
+        const loadingBox = document.getElementById('loadingBox');
+        const loadingTitle = loadingBox ? loadingBox.querySelector('h3') : null;
+        const loadingDesc = loadingBox ? loadingBox.querySelector('p') : null;
+        const prevTitle = loadingTitle ? loadingTitle.textContent : '';
+        const prevDesc = loadingDesc ? loadingDesc.textContent : '';
+
+        if (loadingBox) {
+            if (loadingTitle) loadingTitle.textContent = (t('uploading_archive_progress') || "Extracting & importing mod '{name}'...").replace('{name}', file.name);
+            if (loadingDesc) loadingDesc.textContent = "Unpacking files natively and organizing folder structure...";
+            loadingBox.classList.remove('hidden');
+        }
+
+        try {
+            const url = `/api/import_mod_archive?name=${encodeURIComponent(file.name)}`;
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/octet-stream',
+                    'X-Filename': encodeURIComponent(file.name)
+                },
+                body: file
+            });
+            const data = await res.json();
+            if (res.ok && data.success) {
+                importedCount++;
+                await showCustomAlert(data.message || `Mod '${data.mod_name}' imported successfully!`, t('modal_title_success'));
+            } else {
+                await showCustomAlert(data.message || `Failed to import mod from '${file.name}'.`, t('modal_title_error'));
+            }
+        } catch (e) {
+            await showCustomAlert(t('alert_err_generic', { msg: e.message }), t('modal_title_error'));
+        } finally {
+            if (loadingBox) {
+                if (loadingTitle) loadingTitle.textContent = prevTitle;
+                if (loadingDesc) loadingDesc.textContent = prevDesc;
+                loadingBox.classList.add('hidden');
+            }
+        }
+    }
+
+    if (importedCount > 0) {
+        await loadStatus();
     }
 }
 
