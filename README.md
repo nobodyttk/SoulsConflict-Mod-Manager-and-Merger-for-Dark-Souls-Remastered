@@ -1,6 +1,6 @@
 # SoulsConflict
 
-[![Download Latest Version exe](https://shields.io)]([https://github.com](https://github.com/nobodyttk/SoulsConflict-Mod-Manager-and-Merger-for-Dark-Souls-Remastered/releases))
+[![Download Latest Version exe](https://shields.io)](https://github.com/nobodyttk/SoulsConflict-Mod-Manager-and-Merger-for-Dark-Souls-Remastered/releases)
 
 **SoulsConflict** is a powerful, portable, and user-friendly Mod Conflict Checker & Merger tool for **Dark Souls Remastered**. 
 It was built from the ground up to allow players to safely combine multiple mods together, intelligently resolving conflicts in game files that would otherwise crash the game or overwrite critical changes.
