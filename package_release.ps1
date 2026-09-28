@@ -20,8 +20,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $distRoot = Join-Path $rootDir "dist"
-$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0.2-Portable"
-$zipPath = Join-Path $distRoot "SoulsConflict-v2.0.2-Portable.zip"
+$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0.3-Portable"
+$zipPath = Join-Path $distRoot "SoulsConflict-v2.0.3-Portable.zip"
 
 Write-Host "[2/4] Preparing clean portable structure in $pkgFolder..." -ForegroundColor Green
 
@@ -47,6 +47,29 @@ $exeSrc = Join-Path $rootDir "target\release\souls_conflict.exe"
 $exeDest = Join-Path $pkgFolder "SoulsConflict.exe"
 Copy-Item $exeSrc $exeDest -Force
 
+# Optional Authenticode Code Signing
+$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Select-Object -First 1
+if (-not $cert) {
+    $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -like "*SoulsConflict*" } | Select-Object -First 1
+    if (-not $cert) {
+        try {
+            $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=SoulsConflict Open Source Developer (nobodyttk)" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
+            Write-Host "Created developer self-signed certificate: $($cert.Subject)" -ForegroundColor Cyan
+        } catch {
+            Write-Host "Code signing certificate generation skipped." -ForegroundColor Gray
+        }
+    }
+}
+if ($cert) {
+    Write-Host "Signing executable with Authenticode certificate: $($cert.Subject)..." -ForegroundColor Cyan
+    try {
+        Set-AuthenticodeSignature -FilePath $exeDest -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+        Set-AuthenticodeSignature -FilePath $exeSrc -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+    } catch {
+        Write-Host "Code signing skipped: $($_.Exception.Message)" -ForegroundColor Gray
+    }
+}
+
 # Copy manuals and instructions
 Copy-Item (Join-Path $rootDir "README_NEXUS.txt") (Join-Path $pkgFolder "README.txt") -Force
 Copy-Item (Join-Path $rootDir "mods\HOW_TO_ADD_MODS.txt") (Join-Path $pkgFolder "mods\HOW_TO_ADD_MODS.txt") -Force
@@ -68,11 +91,29 @@ New-Item -ItemType Directory -Path (Join-Path $stageZipDir "vanilla_backup") -Fo
 Compress-Archive -Path "$stageZipDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
 Remove-Item -Recurse -Force $stageZipDir -ErrorAction SilentlyContinue
 
+Write-Host "[4/4] Generating cryptographic SHA-256 Checksums..." -ForegroundColor Green
+$exeHash = (Get-FileHash -Path $exeDest -Algorithm SHA256).Hash
+$zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
+$zipFileName = [System.IO.Path]::GetFileName($zipPath)
+
+$checksumsContent = @"
+# SoulsConflict v2.0.3 SHA-256 Checksums
+# Verify with PowerShell: Get-FileHash <filename> -Algorithm SHA256
+
+$exeHash  SoulsConflict.exe
+$zipHash  $zipFileName
+"@
+$checksumPath = Join-Path $distRoot "SHA256_CHECKSUMS.txt"
+Set-Content -Path $checksumPath -Value $checksumsContent -Encoding UTF8
+
 Write-Host "[4/4] Package ready successfully!" -ForegroundColor Cyan
 $zipSizeMB = [math]::Round((Get-Item $zipPath).Length / 1MB, 2)
 
 Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
-Write-Host "ZIP File Generated: $zipPath" -ForegroundColor White
-Write-Host "Package Size: $zipSizeMB MB" -ForegroundColor White
+Write-Host "ZIP File: $zipPath" -ForegroundColor White
+Write-Host "Size:     $zipSizeMB MB" -ForegroundColor White
+Write-Host "EXE SHA256: $exeHash" -ForegroundColor Green
+Write-Host "ZIP SHA256: $zipHash" -ForegroundColor Green
+Write-Host "Checksums File: $checksumPath" -ForegroundColor White
 Write-Host "Ready for upload on the Nexus Mods mod page and GitHub Releases!" -ForegroundColor Green
 Write-Host "----------------------------------------------------------" -ForegroundColor Yellow
