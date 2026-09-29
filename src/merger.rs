@@ -50,11 +50,11 @@ impl Merger {
                 return Err("No mod specified for merging.".to_string());
             }
             if req.priority == "B" {
-                mods_to_merge.push(ModInput { name: "Mod B".to_string(), path: req.mod_b.clone(), variant: None });
-                mods_to_merge.push(ModInput { name: "Mod A".to_string(), path: req.mod_a.clone(), variant: None });
+                mods_to_merge.push(ModInput { name: "Mod B".to_string(), path: req.mod_b.clone(), variant: None, disabled_files: Vec::new() });
+                mods_to_merge.push(ModInput { name: "Mod A".to_string(), path: req.mod_a.clone(), variant: None, disabled_files: Vec::new() });
             } else {
-                mods_to_merge.push(ModInput { name: "Mod A".to_string(), path: req.mod_a.clone(), variant: None });
-                mods_to_merge.push(ModInput { name: "Mod B".to_string(), path: req.mod_b.clone(), variant: None });
+                mods_to_merge.push(ModInput { name: "Mod A".to_string(), path: req.mod_a.clone(), variant: None, disabled_files: Vec::new() });
+                mods_to_merge.push(ModInput { name: "Mod B".to_string(), path: req.mod_b.clone(), variant: None, disabled_files: Vec::new() });
             }
         }
 
@@ -66,7 +66,11 @@ impl Merger {
             if !p.exists() {
                 return Err(format!("Mod directory '{}' not found: {}", m.name, m.path));
             }
-            let files = Self::list_files(p)?;
+            let mut files = Self::list_files(p)?;
+            for disabled in &m.disabled_files {
+                let clean = disabled.to_lowercase().replace('\\', "/");
+                files.retain(|k, _| k.to_lowercase().replace('\\', "/") != clean);
+            }
             mod_files.push((m.name.clone(), files));
         }
 
@@ -122,6 +126,21 @@ impl Merger {
                 copied += 1;
             } else {
                 // Multi-mod conflict or overlap
+                let lower_rel = rel.to_lowercase();
+                let is_bnd = lower_rel.contains("parambnd")
+                    || lower_rel.contains("anibnd")
+                    || lower_rel.contains("msgbnd")
+                    || lower_rel.contains("talkesdbnd");
+
+                let has_explicit_override = req.file_overrides.get(&rel).map(|s| s != "smart").unwrap_or(false);
+
+                if is_bnd && mode == "smart" && !has_explicit_override {
+                    if let Ok(()) = Self::smart_merge_bnd3(&rel, &mod_files, &present_indices, &dest_file) {
+                        merged += 1;
+                        continue;
+                    }
+                }
+
                 let chosen_file = Self::resolve_conflict(
                     &rel,
                     &mod_files,
@@ -244,6 +263,47 @@ impl Merger {
         Ok(mod_files[present_indices[0]].1[rel].clone())
     }
 
+    fn smart_merge_bnd3(
+        rel: &str,
+        mod_files: &[(String, HashMap<String, PathBuf>)],
+        present_indices: &[usize],
+        dest_file: &Path,
+    ) -> Result<(), String> {
+        let highest_idx = present_indices[0];
+        let base_path = &mod_files[highest_idx].1[rel];
+        let base_bytes = fs::read(base_path).map_err(|e| e.to_string())?;
+        let mut base_bnd = Bnd3Archive::parse(&base_bytes)?;
+
+        let mut existing_names: HashSet<String> = base_bnd.entries.iter().map(|e| e.name.clone()).collect();
+        let mut existing_ids: HashSet<u32> = base_bnd.entries.iter().map(|e| e.id).collect();
+
+        // Ingest exclusive non-colliding sub-entries from other mods
+        for &idx in &present_indices[1..] {
+            let other_path = &mod_files[idx].1[rel];
+            if let Ok(other_bytes) = fs::read(other_path) {
+                if let Ok(other_bnd) = Bnd3Archive::parse(&other_bytes) {
+                    for entry in other_bnd.entries {
+                        if !existing_names.contains(&entry.name) && !existing_ids.contains(&entry.id) {
+                            existing_names.insert(entry.name.clone());
+                            existing_ids.insert(entry.id);
+                            base_bnd.entries.push(entry);
+                        }
+                    }
+                }
+            }
+        }
+
+        let bnd_bytes = base_bnd.to_bytes()?;
+        let is_dcx = rel.to_lowercase().ends_with(".dcx") || crate::formats::is_dcx(&base_bytes);
+        let final_bytes = if is_dcx {
+            crate::formats::compress_dcx(&bnd_bytes)?
+        } else {
+            bnd_bytes
+        };
+
+        fs::write(dest_file, final_bytes).map_err(|e| e.to_string())
+    }
+
     fn list_files(base_path: &Path) -> Result<HashMap<String, PathBuf>, String> {
         let mut map = HashMap::new();
         Self::walk(base_path, base_path, &mut map)?;
@@ -255,8 +315,16 @@ impl Merger {
             let entry = entry.map_err(|e| e.to_string())?;
             let path = entry.path();
             if path.is_dir() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name == "ptde" {
+                    continue;
+                }
                 Self::walk(root, &path, map)?;
             } else if path.is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if crate::scanner::is_ignored_non_game_file(&name) {
+                    continue;
+                }
                 if let Ok(rel) = path.strip_prefix(root) {
                     let rel_str = rel.to_string_lossy().replace('\\', "/");
                     let canonical = resolve_canonical_game_path(&rel_str);

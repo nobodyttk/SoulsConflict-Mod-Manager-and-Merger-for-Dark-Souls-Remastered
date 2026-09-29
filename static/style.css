@@ -204,6 +204,66 @@ h1 {
     background: rgba(22, 26, 32, 0.85);
 }
 
+.mod-row-item.mod-row-disabled {
+    opacity: 0.55;
+    background: rgba(14, 16, 20, 0.45);
+    border-color: rgba(255, 255, 255, 0.04);
+}
+
+.mod-row-item.mod-row-disabled:hover {
+    opacity: 0.75;
+    background: rgba(18, 21, 26, 0.6);
+}
+
+.mod-row-item.mod-row-disabled .mod-row-title {
+    color: var(--text-secondary);
+}
+
+.mod-checkbox-label {
+    display: inline-flex;
+    align-items: center;
+    cursor: pointer;
+    margin-right: 4px;
+}
+
+.mod-enable-checkbox {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 17px;
+    height: 17px;
+    border: 1.5px solid rgba(255, 255, 255, 0.28);
+    border-radius: 4px;
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    position: relative;
+    outline: none;
+    transition: all 0.15s ease;
+    display: inline-block;
+    vertical-align: middle;
+}
+
+.mod-enable-checkbox:hover {
+    border-color: var(--gold);
+    background: rgba(201, 168, 76, 0.12);
+}
+
+.mod-enable-checkbox:checked {
+    background: var(--gold);
+    border-color: var(--gold);
+}
+
+.mod-enable-checkbox:checked::after {
+    content: '';
+    position: absolute;
+    left: 4.5px;
+    top: 1.5px;
+    width: 5px;
+    height: 9px;
+    border: solid #0d0f12;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
 .mod-row-left {
     display: flex;
     align-items: center;
@@ -235,6 +295,19 @@ h1 {
     background: rgba(59, 155, 110, 0.15);
     color: var(--color-safe);
     border-color: rgba(59, 155, 110, 0.3);
+}
+
+.priority-pill.priority-disabled {
+    opacity: 0.5;
+    background: rgba(255, 255, 255, 0.02);
+    border-color: rgba(255, 255, 255, 0.04);
+    color: #64748b;
+}
+
+.badge-mod-disabled {
+    background: rgba(100, 116, 139, 0.15) !important;
+    color: #94a3b8 !important;
+    border: 1px solid rgba(100, 116, 139, 0.25) !important;
 }
 
 .slot-order-btns {
@@ -1600,4 +1673,397 @@ h1 {
     outline: 2px dashed var(--gold, #c5a059);
     outline-offset: -2px;
     background: rgba(197, 160, 89, 0.08) !important;
+}
+
+/* ============================================================
+   Active vs Overwritten Conflict Resolution Elements (Dark Souls)
+   ============================================================ */
+.conflict-resolution-banner {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(20, 26, 23, 0.75);
+    border: 1px solid rgba(59, 155, 110, 0.25);
+    border-left: 3px solid var(--color-safe);
+    border-radius: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 10px 20px;
+    font-size: 0.84rem;
+}
+
+.pill-active-winner {
+    background: rgba(59, 155, 110, 0.18);
+    border: 1px solid rgba(59, 155, 110, 0.45);
+    color: #8fd4b0;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.76rem;
+}
+
+.pill-combined {
+    background: rgba(74, 124, 150, 0.18);
+    border: 1px solid rgba(74, 124, 150, 0.4);
+    color: #a3c9df;
+    font-weight: 600;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-size: 0.76rem;
+}
+
+.val-badge-active {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(59, 155, 110, 0.1);
+    border: 1px solid rgba(59, 155, 110, 0.25);
+    color: #8fd4b0;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+    font-weight: 500;
+}
+
+.val-badge-active .val-tag {
+    background: rgba(59, 155, 110, 0.25);
+    color: #a8e5c5;
+    font-weight: 700;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    letter-spacing: 0.3px;
+}
+
+.val-badge-inactive {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(196, 64, 64, 0.08);
+    border: 1px solid rgba(196, 64, 64, 0.22);
+    color: #d89696;
+    padding: 3px 10px;
+    border-radius: 4px;
+    font-size: 0.78rem;
+}
+
+.val-badge-inactive .val-tag {
+    background: rgba(196, 64, 64, 0.2);
+    color: #e2a8a8;
+    font-weight: 600;
+    padding: 1px 5px;
+    border-radius: 3px;
+    font-size: 0.68rem;
+    letter-spacing: 0.3px;
+}
+
+.val-badge-inactive .val-text {
+    text-decoration: line-through;
+    opacity: 0.75;
+}
+
+.badge-active-tag {
+    background: rgba(59, 155, 110, 0.15);
+    border: 1px solid rgba(59, 155, 110, 0.35);
+    color: #8fd4b0;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+}
+
+.badge-overwritten-tag {
+    background: rgba(196, 64, 64, 0.1);
+    border: 1px solid rgba(196, 64, 64, 0.25);
+    color: #d89696;
+    font-size: 0.7rem;
+    font-weight: 500;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-decoration: line-through;
+    opacity: 0.8;
+}
+
+.badge-combined-tag {
+    background: rgba(74, 124, 150, 0.16);
+    border: 1px solid rgba(74, 124, 150, 0.38);
+    color: #92bed6;
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 6px;
+    border-radius: 3px;
+    text-decoration: none !important;
+}
+
+.conflict-resolution-banner.mergeable-banner {
+    border-left: 3px solid #4a7c96;
+    background: rgba(18, 24, 30, 0.75);
+    border-color: rgba(74, 124, 150, 0.25);
+}
+
+.badge-resolved-toggle {
+    background: rgba(59, 155, 110, 0.14);
+    border: 1px solid rgba(59, 155, 110, 0.4);
+    color: #8fd4b0;
+    font-size: 0.72rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 4px;
+}
+
+.conflict-resolution-banner.resolved-banner {
+    border-left: 3px solid var(--color-safe);
+    background: rgba(18, 24, 22, 0.75);
+    border-color: rgba(59, 155, 110, 0.25);
+}
+
+.badge-resolved-tag {
+    background: rgba(59, 155, 110, 0.18);
+    color: #8fd4b0;
+    border: 1px solid rgba(59, 155, 110, 0.4);
+    font-size: 0.7rem;
+    font-weight: 600;
+    padding: 2px 7px;
+    border-radius: 3px;
+}
+
+/* Conflict Selection Box (Checkbox Group) */
+.conflict-selection-box {
+    margin-top: 10px;
+    padding: 10px 14px;
+    background: rgba(20, 24, 32, 0.6);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 6px;
+}
+
+.conflict-selection-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.conflict-selection-title {
+    font-size: 0.82rem;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.02em;
+}
+
+.conflict-selection-hint {
+    font-size: 0.75rem;
+    color: #94a3b8;
+}
+
+.conflict-checkboxes-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mod-checkbox-card {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 12px;
+    background: rgba(26, 31, 40, 0.9);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    transition: all 0.18s ease;
+    user-select: none;
+}
+
+.mod-checkbox-card:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: rgba(35, 42, 54, 0.95);
+}
+
+.mod-checkbox-card.is-winner {
+    border-color: rgba(59, 155, 110, 0.35);
+    background: rgba(59, 155, 110, 0.06);
+}
+
+.mod-checkbox-card.is-winner:hover {
+    border-color: rgba(59, 155, 110, 0.55);
+    background: rgba(59, 155, 110, 0.1);
+}
+
+.mod-checkbox-card.is-combined {
+    border-color: rgba(74, 124, 150, 0.35);
+    background: rgba(74, 124, 150, 0.06);
+}
+
+.mod-checkbox-card.is-combined:hover {
+    border-color: rgba(74, 124, 150, 0.55);
+    background: rgba(74, 124, 150, 0.1);
+}
+
+.mod-checkbox-card.is-combined .mod-checkbox-name {
+    color: #cbd5e1;
+    text-decoration: none;
+}
+
+.mod-checkbox-card.is-overwritten {
+    border-color: rgba(196, 64, 64, 0.25);
+    background: rgba(196, 64, 64, 0.04);
+}
+
+.mod-checkbox-card.is-overwritten:hover {
+    border-color: rgba(196, 64, 64, 0.4);
+    background: rgba(196, 64, 64, 0.08);
+}
+
+.mod-checkbox-card.is-disabled {
+    border-color: rgba(255, 255, 255, 0.05);
+    background: rgba(15, 18, 24, 0.6);
+    opacity: 0.55;
+}
+
+.mod-checkbox-card.is-disabled .mod-checkbox-name {
+    text-decoration: line-through;
+    opacity: 0.7;
+}
+
+.mod-checkbox-card input[type="checkbox"] {
+    accent-color: var(--gold);
+    width: 15px;
+    height: 15px;
+    cursor: pointer;
+}
+
+.badge-disabled-tag {
+    font-size: 0.7rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(148, 163, 184, 0.15);
+    color: #94a3b8;
+    border: 1px solid rgba(148, 163, 184, 0.25);
+    text-decoration: none !important;
+}
+
+.sub-item-active-inactive-row {
+    margin-top: 6px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    align-items: center;
+}
+
+/* ============================================================
+   Dark Souls Re-Remastered Visual Layer Preset Banner
+   ============================================================ */
+.dsrr-preset-banner {
+    margin-bottom: 16px;
+    padding: 14px 18px;
+    background: rgba(18, 24, 32, 0.85);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    border-left: 4px solid var(--gold);
+    border-radius: 6px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
+    animation: fadeIn 0.25s ease-out;
+}
+
+.dsrr-preset-banner.dsrr-preset-active {
+    border-color: rgba(59, 155, 110, 0.4);
+    border-left-color: var(--color-safe);
+    background: rgba(18, 28, 22, 0.85);
+}
+
+.dsrr-preset-left {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+}
+
+.dsrr-preset-title-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.dsrr-preset-title {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.02em;
+}
+
+.dsrr-preset-banner.dsrr-preset-active .dsrr-preset-title {
+    color: #a8e5c5;
+}
+
+.dsrr-badge-tag {
+    font-size: 0.68rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    background: rgba(201, 168, 76, 0.18);
+    color: var(--gold);
+    border: 1px solid rgba(201, 168, 76, 0.35);
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+}
+
+.dsrr-badge-tag.active {
+    background: rgba(59, 155, 110, 0.2);
+    color: #8fd4b0;
+    border-color: rgba(59, 155, 110, 0.45);
+}
+
+.dsrr-preset-desc {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.45;
+    max-width: 850px;
+}
+
+.dsrr-preset-right {
+    display: flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.btn-visual-layer-tag {
+    background: rgba(201, 168, 76, 0.12);
+    border: 1px solid rgba(201, 168, 76, 0.3);
+    color: var(--gold-light);
+    font-size: 0.72rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    user-select: none;
+}
+
+.btn-visual-layer-tag:hover {
+    background: rgba(201, 168, 76, 0.25);
+    border-color: var(--gold);
+}
+
+.btn-visual-layer-tag.active {
+    background: rgba(59, 155, 110, 0.18);
+    border-color: rgba(59, 155, 110, 0.45);
+    color: #8fd4b0;
+}
+
+.btn-visual-layer-tag.strict {
+    background: rgba(192, 138, 48, 0.22);
+    border-color: rgba(201, 168, 76, 0.55);
+    color: var(--gold-light);
+}
+
+.btn-visual-layer-tag.strict:hover {
+    background: rgba(192, 138, 48, 0.35);
+    border-color: var(--gold);
 }

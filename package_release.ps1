@@ -20,8 +20,8 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 $distRoot = Join-Path $rootDir "dist"
-$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.0.3-Portable"
-$zipPath = Join-Path $distRoot "SoulsConflict-v2.0.3-Portable.zip"
+$pkgFolder = Join-Path $distRoot "SoulsConflict-v2.1.0-Portable"
+$zipPath = Join-Path $distRoot "SoulsConflict-v2.1.0-Portable.zip"
 
 Write-Host "[2/4] Preparing clean portable structure in $pkgFolder..." -ForegroundColor Green
 
@@ -100,7 +100,7 @@ $zipHash = (Get-FileHash -Path $zipPath -Algorithm SHA256).Hash
 $zipFileName = [System.IO.Path]::GetFileName($zipPath)
 
 $checksumsContent = @"
-# SoulsConflict v2.0.3 SHA-256 Checksums
+# SoulsConflict v2.1.0 SHA-256 Checksums
 # Verify with PowerShell: Get-FileHash <filename> -Algorithm SHA256
 
 $exeHash  SoulsConflict.exe

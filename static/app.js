@@ -139,7 +139,47 @@ const TRANSLATIONS = {
         alert_launch_seamless_success: "Launching Seamless Co-op via launcher...",
         alert_launch_direct_success: "Launching Dark Souls Remastered directly via executable...",
         detected_steam_badge: "Steam Auto-Selected",
-        detected_direct_badge: "Non-Steam / Alternative Auto-Selected"
+        detected_direct_badge: "Non-Steam / Alternative Auto-Selected",
+        mod_tag_active: "Active",
+        mod_tag_overwritten: "Overwritten",
+        mod_tag_combined: "Combined",
+        priority_winner_label: "Priority Winner",
+        overwritten_disabled_label: "Overwritten / Disabled",
+        mergeable_base_label: "Base File (Priority #1)",
+        mergeable_combined_label: "Combined in Merge",
+        mergeable_banner_hint: "Smart Fusion: Changes from all active mods are combined cleanly without collision.",
+        badge_resolved_toggle: "Resolved via Toggle",
+        badge_resolved_toggle_title: "This conflict is resolved because a secondary mod was toggled OFF for this file",
+        conflict_choice_label: "Active file version:",
+        conflict_active_hint: "Check/uncheck a mod to choose which version is included in the merge.",
+        custom_toggles_banner: "Custom toggles active ({count} override/exclusions).",
+        btn_restore_all_toggles: "Restore Default Priorities",
+        val_active_badge: "WINNER",
+        val_inactive_badge: "OVERWRITTEN",
+        file_toggle_title_on: "Click to toggle this file OFF for this mod",
+        file_toggle_title_off: "Click to toggle this file ON for this mod",
+        toggle_badge_off: "DISABLED",
+        val_active_title: "This value wins and will be used in the merge",
+        val_inactive_title: "This value is overwritten and will be discarded",
+        overwritten_mods_label: "Overwritten Mods",
+        dsrr_preset_title: "Visual Layer Preset (Dark Souls Re-Remastered)",
+        dsrr_preset_tag_detected: "DSRR Detected",
+        dsrr_preset_desc: "Choose an automatic preset to combine DSRR with overhaul mods without crashes or loading screen freezes.",
+        dsrr_preset_btn_enable: "Preset Standard (Logic)",
+        dsrr_preset_btn_enable_strict: "Preset Strict (Zero Conflicts / Pure Assets)",
+        dsrr_preset_active_title: "Visual Layer Active ({count} logic conflicts bypassed)",
+        dsrr_preset_active_title_strict: "Strict Visual Layer Active ({count} files bypassed — Zero Conflicts)",
+        dsrr_preset_active_tag: "Visual Layer (Standard)",
+        dsrr_preset_active_tag_strict: "Visual Layer (Strict)",
+        dsrr_preset_active_desc: "Standard preset: Bypasses GameParam, Event, Script, animations, and map portals. DSRR provides DrawParam lighting, SFX, and textures.",
+        dsrr_preset_active_desc_strict: "Strict preset: Overhaul mod completely overrides all shared files and map geometry/occlusion (CHR, SFX, Map MSB/FLVER/MCP, Param, Scripts, Menus). DSRR provides 100% pure 4K textures, 3D world objects (obj/), and armor/weapon models (parts/) with ZERO collisions or map tearing.",
+        dsrr_preset_btn_disable: "Restore Full DSRR Files",
+        mod_tag_visual_layer: "Visual Layer",
+        mod_tag_visual_layer_strict: "Strict Visual",
+        mod_disable_tooltip: "Click to disable this mod in scan and merge without deleting it",
+        mod_enable_tooltip: "Click to enable this mod in scan and merge",
+        badge_mod_disabled: "Disabled",
+        alert_min_mods_active: "You need at least 2 active (checked) mods to run a conflict diagnostic."
     },
     pt: {
         app_title: "SoulsConflict",
@@ -276,7 +316,47 @@ const TRANSLATIONS = {
         alert_launch_seamless_success: "Iniciando Seamless Co-op...",
         alert_launch_direct_success: "Iniciando Dark Souls Remastered diretamente via executável...",
         detected_steam_badge: "Steam Selecionada Automaticamente",
-        detected_direct_badge: "Não-Steam / Alternativo Selecionado"
+        detected_direct_badge: "Não-Steam / Alternativo Selecionado",
+        mod_tag_active: "Ativo",
+        mod_tag_overwritten: "Sobrescrito",
+        mod_tag_combined: "Combinado",
+        priority_winner_label: "Vencedor por Prioridade",
+        overwritten_disabled_label: "Sobrescrito / Desativado",
+        mergeable_base_label: "Arquivo Base (Prioridade #1)",
+        mergeable_combined_label: "Combinado na Fusão",
+        mergeable_banner_hint: "Fusão Inteligente: Alterações de ambos os mods são combinadas sem colisão ou perda de dados.",
+        badge_resolved_toggle: "Resolvido via Toggle",
+        badge_resolved_toggle_title: "Este conflito foi resolvido porque um mod secundário foi desativado (OFF) para este arquivo",
+        conflict_choice_label: "Versão ativa do arquivo:",
+        conflict_active_hint: "Marque ou desmarque um mod para escolher qual versão será incluída no merge.",
+        custom_toggles_banner: "Seleções manuais ativas ({count} arquivos com toggle).",
+        btn_restore_all_toggles: "Restaurar Prioridades Padrão",
+        val_active_badge: "VENCEDOR",
+        val_inactive_badge: "SOBRESCRITO",
+        file_toggle_title_on: "Clique para desativar este arquivo neste mod",
+        file_toggle_title_off: "Clique para reativar este arquivo neste mod",
+        toggle_badge_off: "DESATIVADO",
+        val_active_title: "Este valor vence e será usado no merge",
+        val_inactive_title: "Este valor foi sobrescrito e será descartado",
+        overwritten_mods_label: "Mods Sobrescritos",
+        dsrr_preset_title: "Preset Camada Visual (Dark Souls Re-Remastered)",
+        dsrr_preset_tag_detected: "DSRR Detectado",
+        dsrr_preset_desc: "Escolha um preset automático para combinar o DSRR com mods overhaul sem travamentos na tela de loading.",
+        dsrr_preset_btn_enable: "Preset Padrão (Lógica)",
+        dsrr_preset_btn_enable_strict: "Preset Rígido (Zero Conflitos / Puro Gráfico)",
+        dsrr_preset_active_title: "Camada Visual Ativa ({count} conflitos de lógica resolvidos)",
+        dsrr_preset_active_title_strict: "Camada Visual Rígida Ativa ({count} arquivos ignorados no DSRR — Zero Conflitos)",
+        dsrr_preset_active_tag: "Camada Visual (Padrão)",
+        dsrr_preset_active_tag_strict: "Camada Visual (Rígida)",
+        dsrr_preset_active_desc: "Preset padrão: O mod overhaul controla gameplay, missões, animações e geometria de mapa. O DSRR fornece texturas, iluminação (DrawParam) e SFX.",
+        dsrr_preset_active_desc_strict: "Preset rígido: O mod overhaul sobrepõe 100% dos arquivos compartilhados e toda geometria/oclusão de mapa (CHR, SFX, Mapas MSB/FLVER/MCP, Param, Scripts, Menus). O DSRR atua exclusivamente como pacote 4K de texturas, armas/armaduras (parts/) e objetos de cenário (obj/) sem quebras de mapa ou conflitos.",
+        dsrr_preset_btn_disable: "Restaurar Arquivos DSRR",
+        mod_tag_visual_layer: "Camada Visual",
+        mod_tag_visual_layer_strict: "Visual Rígido",
+        mod_disable_tooltip: "Clique para desativar este mod no diagnóstico e fusão sem excluí-lo",
+        mod_enable_tooltip: "Clique para ativar este mod no diagnóstico e fusão",
+        badge_mod_disabled: "Desativado",
+        alert_min_mods_active: "Você precisa de pelo menos 2 mods ativos (marcados) para executar o diagnóstico."
     },
     it: {
         app_title: "SoulsConflict",
@@ -828,6 +908,266 @@ let currentModFolders = [];
 let currentScanData = null;
 let currentFilter = 'all';
 
+let disabledFilesState = {};
+try {
+    const saved = localStorage.getItem('soulsconflict_disabled_files');
+    if (saved) disabledFilesState = JSON.parse(saved);
+} catch (e) {
+    console.error('Failed to load disabled files state:', e);
+    disabledFilesState = {};
+}
+
+function saveDisabledFilesState() {
+    try {
+        localStorage.setItem('soulsconflict_disabled_files', JSON.stringify(disabledFilesState));
+    } catch (e) {
+        console.error('Failed to save disabled files state:', e);
+    }
+}
+
+function resetAllDisabledFiles() {
+    disabledFilesState = {};
+    saveDisabledFilesState();
+    runScan();
+}
+
+function toggleFileInMod(modName, relPath, e) {
+    if (e) e.stopPropagation();
+    if (!disabledFilesState[modName]) {
+        disabledFilesState[modName] = [];
+    }
+    const idx = disabledFilesState[modName].indexOf(relPath);
+    if (idx >= 0) {
+        disabledFilesState[modName].splice(idx, 1);
+        if (disabledFilesState[modName].length === 0) {
+            delete disabledFilesState[modName];
+        }
+    } else {
+        disabledFilesState[modName].push(relPath);
+    }
+    saveDisabledFilesState();
+    runScan();
+}
+
+/* ============================================================
+   DISABLED MODS (CHECKBOX TOGGLE) STATE
+   ============================================================ */
+let disabledModIds = new Set();
+try {
+    const savedMods = localStorage.getItem('soulsconflict_disabled_mods');
+    if (savedMods) {
+        const parsed = JSON.parse(savedMods);
+        if (Array.isArray(parsed)) disabledModIds = new Set(parsed);
+    }
+} catch (e) {
+    console.error('Failed to load disabled mods state:', e);
+    disabledModIds = new Set();
+}
+
+function saveDisabledModIds() {
+    try {
+        localStorage.setItem('soulsconflict_disabled_mods', JSON.stringify(Array.from(disabledModIds)));
+    } catch (e) {
+        console.error('Failed to save disabled mods state:', e);
+    }
+}
+
+function isModEnabled(modId) {
+    return !disabledModIds.has(modId);
+}
+
+function toggleModEnabled(modId, e) {
+    if (e) e.stopPropagation();
+    if (disabledModIds.has(modId)) {
+        disabledModIds.delete(modId);
+    } else {
+        disabledModIds.add(modId);
+    }
+    saveDisabledModIds();
+    renderModSlots();
+    loadDeployerStatus();
+}
+
+/* ============================================================
+   DSRR (DARK SOULS RE-REMASTERED) VISUAL LAYER PRESET
+   ============================================================ */
+function findDsrrMod(onlyEnabled = true) {
+    if (!currentModFolders) return null;
+    return currentModFolders.find(m => {
+        if (onlyEnabled && !isModEnabled(m.id)) return false;
+        const name = (m.name || '').toLowerCase();
+        const id = (m.id || '').toLowerCase();
+        const path = (m.relative_path || '').toLowerCase();
+        return name.includes('re-remastered') || name.includes('dsrr') ||
+               id.includes('re-remastered') || id.includes('dsrr') ||
+               path.includes('re-remastered') || path.includes('dsrr');
+    });
+}
+
+let dsrrPresetMode = 'strict';
+try {
+    const savedPresetMode = localStorage.getItem('soulsconflict_dsrr_preset_mode');
+    if (savedPresetMode) dsrrPresetMode = savedPresetMode;
+} catch (e) {}
+
+function isDsrrMapStructureFile(relPath) {
+    const lower = relPath.toLowerCase().replace(/\\/g, '/');
+    if (lower.startsWith('map/')) {
+        const isTex = lower.endsWith('.tpfbdt') || lower.endsWith('.tpfbhd')
+            || lower.endsWith('.tpf.dcx') || lower.endsWith('.tpf');
+        return !isTex;
+    }
+    return false;
+}
+
+function isDsrrLogicFile(relPath) {
+    const lower = relPath.toLowerCase().replace(/\\/g, '/');
+    if (lower.includes('gameparam.parambnd')) return true;
+    if (lower.startsWith('event/')) return true;
+    if (lower.startsWith('script/')) return true;
+    if (lower.endsWith('.esd.dcx')) return true;
+    if (lower.endsWith('.anibnd.dcx')) return true;
+    if (lower.endsWith('.chresdbnd.dcx')) return true;
+    if (isDsrrMapStructureFile(relPath)) return true;
+    return false;
+}
+
+function isDsrrStrictNonAssetFile(relPath) {
+    const lower = relPath.toLowerCase().replace(/\\/g, '/');
+    if (lower.startsWith('event/')) return true;
+    if (lower.startsWith('script/')) return true;
+    if (lower.endsWith('.msb')) return true;
+    if (lower.endsWith('.anibnd.dcx')) return true;
+    if (lower.includes('.esd.') || lower.endsWith('.esd.dcx') || lower.endsWith('.chresdbnd.dcx')) return true;
+    if (lower.startsWith('param/')) return true;
+    if (lower.startsWith('menu/')) return true;
+    if (lower.startsWith('sfx/')) return true;
+    if (isDsrrMapStructureFile(relPath)) return true;
+    return false;
+}
+
+function updateDsrrPresetBanner() {
+    const container = document.getElementById('dsrrPresetBannerContainer');
+    if (!container) return;
+
+    const dsrrMod = findDsrrMod(true);
+    const activeMods = currentModFolders ? currentModFolders.filter(m => isModEnabled(m.id)) : [];
+    if (!dsrrMod || !currentScanData || activeMods.length < 2) {
+        container.classList.add('hidden');
+        container.innerHTML = '';
+        return;
+    }
+
+    const disabledList = disabledFilesState[dsrrMod.name] || [];
+    const isVisualLayerActive = disabledList.length > 0;
+
+    // Auto-update preset if already active in strict mode but missing map structure exclusions
+    if (isVisualLayerActive && dsrrPresetMode === 'strict' && disabledList.length < 2000) {
+        setTimeout(() => applyDsrrVisualPreset('strict'), 100);
+    }
+
+    container.classList.remove('hidden');
+
+    if (isVisualLayerActive) {
+        const isStrict = dsrrPresetMode === 'strict';
+        const tagText = isStrict ? t('dsrr_preset_active_tag_strict') : t('dsrr_preset_active_tag');
+        const titleText = isStrict
+            ? t('dsrr_preset_active_title_strict', { count: disabledList.length })
+            : t('dsrr_preset_active_title', { count: disabledList.length });
+        const descText = isStrict ? t('dsrr_preset_active_desc_strict') : t('dsrr_preset_active_desc');
+
+        const switchBtnHtml = isStrict
+            ? `<button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('standard')">${t('dsrr_preset_btn_enable')}</button>`
+            : `<button type="button" class="btn btn-gold btn-sm" onclick="applyDsrrVisualPreset('strict')">${t('dsrr_preset_btn_enable_strict')}</button>`;
+
+        container.innerHTML = `
+            <div class="dsrr-preset-banner dsrr-preset-active">
+                <div class="dsrr-preset-left">
+                    <div class="dsrr-preset-title-row">
+                        <span class="dsrr-badge-tag active">${tagText}</span>
+                        <span class="dsrr-preset-title">${titleText}</span>
+                    </div>
+                    <div class="dsrr-preset-desc">
+                        ${descText}
+                    </div>
+                </div>
+                <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
+                    ${switchBtnHtml}
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('disable')">
+                        ${t('dsrr_preset_btn_disable')}
+                    </button>
+                </div>
+            </div>
+        `;
+    } else {
+        container.innerHTML = `
+            <div class="dsrr-preset-banner">
+                <div class="dsrr-preset-left">
+                    <div class="dsrr-preset-title-row">
+                        <span class="dsrr-badge-tag">${t('dsrr_preset_tag_detected')}</span>
+                        <span class="dsrr-preset-title">${t('dsrr_preset_title')}</span>
+                    </div>
+                    <div class="dsrr-preset-desc">
+                        ${t('dsrr_preset_desc')}
+                    </div>
+                </div>
+                <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('standard')">
+                        ${t('dsrr_preset_btn_enable')}
+                    </button>
+                    <button type="button" class="btn btn-gold btn-sm" onclick="applyDsrrVisualPreset('strict')">
+                        ${t('dsrr_preset_btn_enable_strict')}
+                    </button>
+                </div>
+            </div>
+        `;
+    }
+}
+
+async function applyDsrrVisualPreset(action) {
+    const dsrrMod = findDsrrMod();
+    if (!dsrrMod) return;
+
+    if (action === 'standard' || action === 'strict' || action === 'enable') {
+        const mode = (action === 'enable') ? 'strict' : action;
+        dsrrPresetMode = mode;
+        try {
+            localStorage.setItem('soulsconflict_dsrr_preset_mode', mode);
+        } catch (e) {}
+
+        if (!currentScanData || !currentScanData.files) {
+            await runScan();
+        }
+        if (!currentScanData || !currentScanData.files) return;
+
+        let targetFiles = [];
+        if (mode === 'strict') {
+            targetFiles = currentScanData.files
+                .filter(f => f.present_in_mods && f.present_in_mods.includes(dsrrMod.name))
+                .filter(f => f.present_in_mods.length > 1 || isDsrrStrictNonAssetFile(f.relative_path))
+                .map(f => f.relative_path);
+        } else {
+            targetFiles = currentScanData.files
+                .filter(f => f.present_in_mods && f.present_in_mods.includes(dsrrMod.name))
+                .filter(f => (f.present_in_mods.length > 1 && isDsrrLogicFile(f.relative_path)) || isDsrrMapStructureFile(f.relative_path))
+                .map(f => f.relative_path);
+        }
+
+        if (targetFiles.length > 0) {
+            disabledFilesState[dsrrMod.name] = targetFiles;
+            saveDisabledFilesState();
+            await runScan();
+        }
+    } else {
+        delete disabledFilesState[dsrrMod.name];
+        try {
+            localStorage.removeItem('soulsconflict_dsrr_preset_mode');
+        } catch (e) {}
+        saveDisabledFilesState();
+        await runScan();
+    }
+}
+
 /* ============================================================
    i18n HELPER FUNCTIONS
    ============================================================ */
@@ -1225,19 +1565,29 @@ function renderModSlots() {
         return;
     }
 
+    let activeOrder = 0;
     currentModFolders.forEach((mod, index) => {
+        const isEnabled = isModEnabled(mod.id);
+        if (isEnabled) activeOrder++;
+
         const row = document.createElement('div');
-        row.className = 'mod-row-item';
+        row.className = `mod-row-item ${isEnabled ? '' : 'mod-row-disabled'}`;
 
         const isTop = index === 0;
         const isBottom = index === currentModFolders.length - 1;
 
-        const priorityLabel = index === 0 ? '#1' : `#${index + 1}`;
-        const pillClass = index === 0 ? 'priority-pill priority-first' : 'priority-pill';
+        const priorityLabel = isEnabled ? (activeOrder === 1 ? '#1' : `#${activeOrder}`) : '-';
+        const pillClass = isEnabled
+            ? (activeOrder === 1 ? 'priority-pill priority-first' : 'priority-pill')
+            : 'priority-pill priority-disabled';
 
         const isReady = mod.file_count > 0;
-        const badgeClass = isReady ? 'badge-ready' : 'badge-empty';
-        const badgeText = isReady ? t('badge_ready', { count: mod.file_count }) : t('badge_empty');
+        const badgeClass = isEnabled
+            ? (isReady ? 'badge-ready' : 'badge-empty')
+            : 'badge-mod-disabled';
+        const badgeText = isEnabled
+            ? (isReady ? t('badge_ready', { count: mod.file_count }) : t('badge_empty'))
+            : t('badge_mod_disabled');
 
         let subfolderInfo = '';
         if (mod.subfolder_detected && mod.subfolder_detected !== mod.name) {
@@ -1263,6 +1613,25 @@ function renderModSlots() {
             structureWarnHtml = `<span class="badge-structure-warn" title="${t('badge_auto_mapped_title')}">${t('badge_auto_mapped')}</span>`;
         }
 
+        let dsrrPresetTagHtml = '';
+        const dsrrMod = findDsrrMod(false);
+        if (dsrrMod && dsrrMod.id === mod.id) {
+            const disabledList = disabledFilesState[mod.name] || [];
+            const isVisualLayerActive = disabledList.length > 0;
+            const isStrict = isVisualLayerActive && dsrrPresetMode === 'strict';
+            const tagLabel = isVisualLayerActive
+                ? (isStrict ? `${t('mod_tag_visual_layer_strict')} (ON)` : `${t('mod_tag_visual_layer')} (ON)`)
+                : t('mod_tag_visual_layer');
+            const nextMode = isVisualLayerActive ? (isStrict ? 'disable' : 'strict') : 'strict';
+            dsrrPresetTagHtml = `
+                <span class="btn-visual-layer-tag ${isVisualLayerActive ? 'active' : ''} ${isStrict ? 'strict' : ''}" 
+                      onclick="applyDsrrVisualPreset('${nextMode}')" 
+                      title="${isStrict ? t('dsrr_preset_active_desc_strict') : t('dsrr_preset_desc')}">
+                    ${tagLabel}
+                </span>
+            `;
+        }
+
         let fixModBtnHtml = '';
         if (mod.has_structure_issues) {
             fixModBtnHtml = `
@@ -1275,6 +1644,9 @@ function renderModSlots() {
         row.innerHTML = `
             <div class="mod-row-left">
                 <div class="mod-row-priority">
+                    <label class="mod-checkbox-label" title="${isEnabled ? t('mod_disable_tooltip') : t('mod_enable_tooltip')}">
+                        <input type="checkbox" class="mod-enable-checkbox" ${isEnabled ? 'checked' : ''} onchange="toggleModEnabled('${escapeHtml(mod.id)}', event)">
+                    </label>
                     <span class="${pillClass}">${priorityLabel}</span>
                     <div class="slot-order-btns">
                         <button class="btn-arrow" ${isTop ? 'disabled' : ''} onclick="moveMod(${index}, -1)" title="${t('move_up_title')}">▲</button>
@@ -1288,6 +1660,7 @@ function renderModSlots() {
                         <span class="mod-row-tag">${escapeHtml(mod.relative_path)}</span>
                         ${variantSelectHtml}
                         ${structureWarnHtml}
+                        ${dsrrPresetTagHtml}
                     </div>
                     ${subfolderInfo}
                 </div>
@@ -1351,6 +1724,8 @@ async function deleteModFolder(id) {
             body: JSON.stringify({ target: id })
         });
         if (res.ok) {
+            disabledModIds.delete(id);
+            saveDisabledModIds();
             await loadStatus();
         }
     } catch (e) {
@@ -1466,15 +1841,17 @@ async function fixModStructure(modId) {
 }
 
 async function runScan() {
-    if (currentModFolders.length < 2) {
-        await showCustomAlert(t('alert_min_mods'), t('modal_title_info'));
+    const activeMods = currentModFolders.filter(m => isModEnabled(m.id));
+    if (activeMods.length < 2) {
+        await showCustomAlert(t('alert_min_mods_active'), t('modal_title_info'));
         return;
     }
 
-    const modsToScan = currentModFolders.map(m => ({
+    const modsToScan = activeMods.map(m => ({
         name: m.name,
         path: m.relative_path,
-        variant: m.selected_variant || null
+        variant: m.selected_variant || null,
+        disabled_files: disabledFilesState[m.name] || []
     }));
 
     const loadingBox = document.getElementById('loadingBox');
@@ -1529,11 +1906,13 @@ function displayResults(data) {
     }
 
     renderFileList();
+    updateDsrrPresetBanner();
     resultsSection.scrollIntoView({ behavior: 'smooth' });
 }
 
 function renderFileList() {
     if (!currentScanData) return;
+    updateDsrrPresetBanner();
 
     const list = document.getElementById('fileList');
     list.innerHTML = '';
@@ -1551,12 +1930,173 @@ function renderFileList() {
         return;
     }
 
+    const totalDisabledCount = Object.values(disabledFilesState).reduce((acc, arr) => acc + (arr ? arr.length : 0), 0);
+    if (totalDisabledCount > 0) {
+        const banner = document.createElement('div');
+        banner.style.cssText = "margin-bottom:14px; padding:10px 14px; background:rgba(74,100,128,0.12); border:1px solid rgba(74,100,128,0.3); border-radius:6px; display:flex; justify-content:space-between; align-items:center; font-size:0.85rem; color:#9bb7cf;";
+        banner.innerHTML = `
+            <div>
+                ${t('custom_toggles_banner', { count: totalDisabledCount })}
+            </div>
+            <button type="button" style="cursor:pointer; background:rgba(74,100,128,0.2); border:1px solid rgba(74,100,128,0.4); color:#b8cde0; padding:3px 10px; border-radius:4px; font-size:0.78rem;" onclick="resetAllDisabledFiles()">
+                ${t('btn_restore_all_toggles')}
+            </button>
+        `;
+        list.appendChild(banner);
+    }
+
     filtered.forEach(file => {
         const item = document.createElement('div');
         item.className = 'file-item';
 
+        const isMultiMod = file.present_in_mods && file.present_in_mods.length > 1;
+        const fileDisabledMods = isMultiMod
+            ? file.present_in_mods.filter(m => (disabledFilesState[m] || []).includes(file.relative_path))
+            : [];
+        const fileActiveMods = isMultiMod
+            ? file.present_in_mods.filter(m => !(disabledFilesState[m] || []).includes(file.relative_path))
+            : (file.present_in_mods || []);
+
+        const isResolvedByToggle = isMultiMod && fileDisabledMods.length > 0 && fileActiveMods.length === 1;
+
+        // Current real-time effective winner:
+        const currentWinner = fileActiveMods.length > 0 ? fileActiveMods[0] : (isMultiMod ? null : (file.present_in_mods ? file.present_in_mods[0] : null));
+        const otherActiveMods = fileActiveMods.slice(1);
+        const disabledMods = fileDisabledMods;
+
         const badgeClass = `badge-${file.level.toLowerCase()}`;
         const levelLabel = file.level === 'Safe' ? t('tab_filter_safe') : file.level === 'Mergeable' ? t('tab_filter_mergeable') : t('tab_filter_conflict');
+        let badgeHtml = '';
+        if (isResolvedByToggle) {
+            badgeHtml = `<span class="badge badge-resolved-toggle" title="${t('badge_resolved_toggle_title')}">${t('badge_resolved_toggle')}</span>`;
+        } else {
+            badgeHtml = `<span class="badge ${badgeClass}">${levelLabel}</span>`;
+        }
+
+        let resolutionBannerHtml = '';
+        if (isMultiMod) {
+            if (currentWinner) {
+                if (isResolvedByToggle) {
+                    resolutionBannerHtml = `
+                        <div class="conflict-resolution-banner resolved-banner">
+                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="color:var(--color-safe); font-weight:600;">${t('priority_winner_label')}:</span>
+                                <span class="pill-active-winner">${escapeHtml(currentWinner)}</span>
+                                <span class="badge-resolved-tag">${t('badge_resolved_toggle')}</span>
+                            </div>
+                            <div style="display:inline-flex; align-items:center; gap:8px; font-size:0.8rem;">
+                                <span style="color:var(--color-conflict); font-weight:600;">${t('overwritten_disabled_label')}:</span>
+                                <span style="text-decoration:line-through; color:#d89696; opacity:0.8;">${escapeHtml(disabledMods.join(', '))}</span>
+                            </div>
+                        </div>
+                    `;
+                } else if (file.level === 'Mergeable') {
+                    resolutionBannerHtml = `
+                        <div class="conflict-resolution-banner mergeable-banner">
+                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="color:#8bb7cf; font-weight:600;">${t('mergeable_base_label')}:</span>
+                                <span class="pill-active-winner">${escapeHtml(currentWinner)}</span>
+                            </div>
+                            ${otherActiveMods.length > 0 ? `
+                                <div style="display:inline-flex; align-items:center; gap:8px;">
+                                    <span style="color:#8bb7cf; font-weight:600;">${t('mergeable_combined_label')}:</span>
+                                    <span class="pill-combined">${escapeHtml(otherActiveMods.join(', '))}</span>
+                                </div>
+                            ` : ''}
+                            ${disabledMods.length > 0 ? `
+                                <div style="display:inline-flex; align-items:center; gap:8px; font-size:0.8rem;">
+                                    <span style="color:var(--color-conflict); font-weight:600;">${t('overwritten_disabled_label')}:</span>
+                                    <span style="text-decoration:line-through; color:#d89696; opacity:0.8;">${escapeHtml(disabledMods.join(', '))}</span>
+                                </div>
+                            ` : ''}
+                            <div style="font-size:0.78rem; color:#8a94a0; width:100%; margin-top:2px;">
+                                ${t('mergeable_banner_hint')}
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resolutionBannerHtml = `
+                        <div class="conflict-resolution-banner">
+                            <div style="display:inline-flex; align-items:center; gap:8px;">
+                                <span style="color:var(--color-safe); font-weight:600;">${t('priority_winner_label')}:</span>
+                                <span class="pill-active-winner">${escapeHtml(currentWinner)}</span>
+                            </div>
+                            ${(otherActiveMods.length > 0 || disabledMods.length > 0) ? `
+                                <div style="display:inline-flex; align-items:center; gap:8px; font-size:0.8rem;">
+                                    <span style="color:var(--color-conflict); font-weight:600;">${t('overwritten_mods_label')}:</span>
+                                    <span style="text-decoration:line-through; color:#8a94a0;">${escapeHtml([...otherActiveMods, ...disabledMods].join(', '))}</span>
+                                </div>
+                            ` : ''}
+                        </div>
+                    `;
+                }
+            } else {
+                resolutionBannerHtml = `
+                    <div class="conflict-resolution-banner all-disabled-banner" style="background:rgba(196,64,64,0.08); border-left: 3px solid var(--color-conflict); border-color: rgba(196,64,64,0.25);">
+                        <span style="color:var(--color-conflict); font-weight:600;">${t('all_mods_disabled_warning')}</span>
+                    </div>
+                `;
+            }
+        }
+
+        // Checkbox Mod Selector
+        let conflictSelectionHtml = '';
+        if (isMultiMod) {
+            conflictSelectionHtml = `
+                <div class="conflict-selection-box">
+                    <div class="conflict-selection-header">
+                        <span class="conflict-selection-title">${t('conflict_choice_label')}</span>
+                        <span class="conflict-selection-hint">${t('conflict_active_hint')}</span>
+                    </div>
+                    <div class="conflict-checkboxes-row">
+                        ${file.present_in_mods.map(m => {
+                            const encMod = encodeURIComponent(m);
+                            const encPath = encodeURIComponent(file.relative_path);
+                            const isChecked = !disabledMods.includes(m);
+                            const isWinner = (m === currentWinner);
+
+                            let cardClass = '';
+                            let statusBadge = '';
+                            if (!isChecked) {
+                                cardClass = 'is-disabled';
+                                statusBadge = `<span class="badge-disabled-tag">${t('toggle_badge_off')}</span>`;
+                            } else if (file.level === 'Mergeable') {
+                                if (isWinner) {
+                                    cardClass = 'is-winner';
+                                    statusBadge = `<span class="badge-active-tag">${t('mod_tag_active')}</span>`;
+                                } else {
+                                    cardClass = 'is-combined';
+                                    statusBadge = `<span class="badge-combined-tag">${t('mod_tag_combined')}</span>`;
+                                }
+                            } else {
+                                if (isWinner) {
+                                    cardClass = 'is-winner';
+                                    statusBadge = `<span class="badge-active-tag">${t('mod_tag_active')}</span>`;
+                                } else {
+                                    cardClass = 'is-overwritten';
+                                    statusBadge = `<span class="badge-overwritten-tag">${t('mod_tag_overwritten')}</span>`;
+                                }
+                            }
+
+                            return `
+                                <label class="mod-checkbox-card ${cardClass}" title="${isChecked ? t('file_toggle_title_on') : t('file_toggle_title_off')}">
+                                    <input type="checkbox" ${isChecked ? 'checked' : ''} 
+                                           onchange="toggleFileInMod(decodeURIComponent('${encMod}'), decodeURIComponent('${encPath}'), event)">
+                                    <span class="mod-checkbox-name">${escapeHtml(m)}</span>
+                                    ${statusBadge}
+                                </label>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            `;
+        } else {
+            conflictSelectionHtml = `
+                <div class="file-mods" style="margin-top: 8px;">
+                    ${t('present_in')}: <span class="mod-pill"><span class="badge-active-tag" style="margin-right:4px;">${t('mod_tag_active')}</span>${escapeHtml(file.present_in_mods[0])}</span>
+                </div>
+            `;
+        }
 
         let subItemsHtml = '';
         if (file.sub_items && file.sub_items.length > 0) {
@@ -1567,11 +2107,70 @@ function renderFileList() {
                     </div>
                     ${file.sub_items.map(sub => {
                         const subBadgeClass = `badge-${sub.level.toLowerCase()}`;
+                        let valueBadgesHtml = '';
+
+                        if (sub.mod_values && Object.keys(sub.mod_values).length > 0) {
+                            const valBadges = [];
+                            if (currentWinner && sub.mod_values[currentWinner] !== undefined) {
+                                valBadges.push(`
+                                    <div class="val-badge-active" title="${t('val_active_title')}">
+                                        <span class="val-tag">${t('val_active_badge')}</span>
+                                        <span class="val-text">${escapeHtml(currentWinner)}: ${escapeHtml(sub.mod_values[currentWinner])}</span>
+                                    </div>
+                                `);
+                            }
+                            file.present_in_mods.forEach(m => {
+                                if (m !== currentWinner && sub.mod_values[m] !== undefined) {
+                                    const isModOff = disabledMods.includes(m);
+                                    valBadges.push(`
+                                        <div class="val-badge-inactive" title="${t('val_inactive_title')}">
+                                            <span class="val-tag">${isModOff ? t('val_inactive_badge') + ' (OFF)' : t('val_inactive_badge')}</span>
+                                            <span class="val-text">${escapeHtml(m)}: ${escapeHtml(sub.mod_values[m])}</span>
+                                        </div>
+                                    `);
+                                }
+                            });
+                            if (valBadges.length > 0) {
+                                valueBadgesHtml = `
+                                    <div class="sub-item-active-inactive-row">
+                                        ${valBadges.join('')}
+                                    </div>
+                                `;
+                            }
+                        }
+
+                        // Fallback if mod_values was not set
+                        if (!valueBadgesHtml && (sub.active_val || sub.inactive_val)) {
+                            const isDefaultWinner = !currentWinner || currentWinner === file.winner_mod;
+                            const activeValText = isDefaultWinner ? sub.active_val : sub.inactive_val;
+                            const inactiveValText = isDefaultWinner ? sub.inactive_val : sub.active_val;
+
+                            valueBadgesHtml = `
+                                <div class="sub-item-active-inactive-row">
+                                    ${activeValText ? `
+                                        <div class="val-badge-active" title="${t('val_active_title')}">
+                                            <span class="val-tag">${t('val_active_badge')}</span>
+                                            <span class="val-text">${escapeHtml(activeValText)}</span>
+                                        </div>
+                                    ` : ''}
+                                    ${inactiveValText ? `
+                                        <div class="val-badge-inactive" title="${t('val_inactive_title')}">
+                                            <span class="val-tag">${t('val_inactive_badge')}</span>
+                                            <span class="val-text">${escapeHtml(inactiveValText)}</span>
+                                        </div>
+                                    ` : ''}
+                                </div>
+                            `;
+                        }
+
                         return `
-                            <div class="sub-item-row">
-                                <span class="badge ${subBadgeClass}">${sub.level}</span>
-                                <span class="sub-item-name">${escapeHtml(sub.name)}</span>
-                                <span class="sub-item-detail">${escapeHtml(sub.detail)}</span>
+                            <div class="sub-item-row" style="padding: 8px 10px; border-bottom: 1px solid rgba(255,255,255,0.05);">
+                                <div style="display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+                                    <span class="badge ${subBadgeClass}">${sub.level}</span>
+                                    <span class="sub-item-name" style="font-weight:600; color:var(--text-primary);">${escapeHtml(sub.name)}</span>
+                                    ${sub.detail ? `<span class="sub-item-detail" style="color:#94a3b8; font-size:0.8rem;">${escapeHtml(sub.detail)}</span>` : ''}
+                                </div>
+                                ${valueBadgesHtml}
                             </div>
                         `;
                     }).join('')}
@@ -1579,18 +2178,17 @@ function renderFileList() {
             `;
         }
 
-        const modsPills = file.present_in_mods.map(m => `<span class="mod-pill">${escapeHtml(m)}</span>`).join('');
-
         item.innerHTML = `
             <div class="file-header">
                 <div class="file-path">
                     <span class="file-ext">[${escapeHtml(file.file_type)}]</span>
                     <strong>${escapeHtml(file.relative_path)}</strong>
                 </div>
-                <span class="badge ${badgeClass}">${levelLabel}</span>
+                ${badgeHtml}
             </div>
             <div class="file-summary">${escapeHtml(file.summary)}</div>
-            <div class="file-mods">${t('present_in')}: ${modsPills}</div>
+            ${resolutionBannerHtml}
+            ${conflictSelectionHtml}
             ${subItemsHtml}
         `;
 
@@ -1604,15 +2202,22 @@ async function runMerge() {
         return;
     }
 
+    const activeMods = currentModFolders.filter(m => isModEnabled(m.id));
+    if (activeMods.length < 2) {
+        await showCustomAlert(t('alert_min_mods_active'), t('modal_title_info'));
+        return;
+    }
+
     const selectedMode = document.querySelector('input[name="resolutionMode"]:checked').value;
     const btnMerge = document.getElementById('btnMerge');
     btnMerge.disabled = true;
     btnMerge.innerText = t('btn_merging');
 
-    const modsToMerge = currentModFolders.map(m => ({
+    const modsToMerge = activeMods.map(m => ({
         name: m.name,
         path: m.relative_path,
-        variant: m.selected_variant || null
+        variant: m.selected_variant || null,
+        disabled_files: disabledFilesState[m.name] || []
     }));
 
     try {
@@ -1774,7 +2379,8 @@ async function loadDeployerStatus() {
             modsToDisplay = data.active_mods;
             isLiveDeployed = true;
         } else if (currentModFolders.length > 0) {
-            modsToDisplay = currentModFolders.map(m => ({
+            const activeMods = currentModFolders.filter(m => isModEnabled(m.id));
+            modsToDisplay = activeMods.map(m => ({
                 name: m.name,
                 path: m.relative_path,
                 variant: m.selected_variant || null
@@ -1847,7 +2453,7 @@ async function deployMods() {
     btn.disabled = true;
     btn.textContent = '...';
 
-    const activeMods = currentModFolders.map(m => ({
+    const activeMods = currentModFolders.filter(m => isModEnabled(m.id)).map(m => ({
         name: m.name,
         path: m.relative_path,
         variant: m.selected_variant || null

@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::formats::{Bnd3Archive, BndEntry, EmevdParser, FmgParser, MsbParser, ParamParser};
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq)]
 pub enum ConflictLevel {
     Safe,       // 🟢 Safe (exclusive or identical)
     Mergeable,  // 🟡 Mergeable (same container, but different sub-IDs)
@@ -17,6 +17,12 @@ pub struct SubItemReport {
     pub name: String,
     pub level: ConflictLevel,
     pub detail: String,
+    #[serde(default)]
+    pub active_val: Option<String>,
+    #[serde(default)]
+    pub inactive_val: Option<String>,
+    #[serde(default)]
+    pub mod_values: HashMap<String, String>,
     pub mod_items: HashMap<String, usize>,
     pub overlapping_items: usize,
 }
@@ -30,6 +36,12 @@ pub struct FileReport {
     pub present_in_mods: Vec<String>,
     pub details: Vec<String>,
     pub sub_items: Vec<SubItemReport>,
+    #[serde(default)]
+    pub winner_mod: Option<String>,
+    #[serde(default)]
+    pub overwritten_mods: Vec<String>,
+    #[serde(default)]
+    pub disabled_in_mods: Vec<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
@@ -54,6 +66,8 @@ pub struct ModInput {
     pub path: String,
     #[serde(default)]
     pub variant: Option<String>,
+    #[serde(default)]
+    pub disabled_files: Vec<String>,
 }
 
 pub struct Scanner;
@@ -62,8 +76,8 @@ impl Scanner {
     #[allow(dead_code)]
     pub fn scan_mods(mod_a_dir: &str, mod_b_dir: &str) -> Result<ScanResult, String> {
         let inputs = vec![
-            ModInput { name: "Mod A".to_string(), path: mod_a_dir.to_string(), variant: None },
-            ModInput { name: "Mod B".to_string(), path: mod_b_dir.to_string(), variant: None },
+            ModInput { name: "Mod A".to_string(), path: mod_a_dir.to_string(), variant: None, disabled_files: Vec::new() },
+            ModInput { name: "Mod B".to_string(), path: mod_b_dir.to_string(), variant: None, disabled_files: Vec::new() },
         ];
         Self::scan_multi(&inputs)
     }
@@ -75,6 +89,15 @@ impl Scanner {
 
         let mut mod_files: Vec<(String, HashMap<String, PathBuf>)> = Vec::new();
         let mut mod_counts = HashMap::new();
+        let mut disabled_map: HashMap<String, HashSet<String>> = HashMap::new();
+
+        for m in mods {
+            let mut d_set = HashSet::new();
+            for d in &m.disabled_files {
+                d_set.insert(d.to_lowercase().replace('\\', "/"));
+            }
+            disabled_map.insert(m.name.clone(), d_set);
+        }
 
         for m in mods {
             let path = Path::new(&m.path);
@@ -105,22 +128,142 @@ impl Scanner {
                 .collect();
 
             let present_names: Vec<String> = present_mods.iter().map(|(name, _)| name.clone()).collect();
+            let rel_lower = rel.to_lowercase().replace('\\', "/");
+            let disabled_in: Vec<String> = present_names
+                .iter()
+                .filter(|m| disabled_map.get(*m).map(|s| s.contains(&rel_lower)).unwrap_or(false))
+                .cloned()
+                .collect();
+            let active_in: Vec<String> = present_names
+                .iter()
+                .filter(|m| !disabled_map.get(*m).map(|s| s.contains(&rel_lower)).unwrap_or(false))
+                .cloned()
+                .collect();
+
+            let effective_winner = if !active_in.is_empty() {
+                active_in.first().cloned()
+            } else {
+                present_names.first().cloned()
+            };
+
+            let effective_overwritten: Vec<String> = if let Some(ref w) = effective_winner {
+                present_names.iter().filter(|m| *m != w).cloned().collect()
+            } else {
+                present_names.iter().skip(1).cloned().collect()
+            };
+
             let file_type = Self::detect_type(&rel);
 
-            if present_mods.len() == 1 {
+            if active_in.len() <= 1 {
                 safe_count += 1;
+                let (summary, details) = if active_in.is_empty() {
+                    (
+                        "Disabled in all mods".to_string(),
+                        vec!["This file is disabled in all mods and will not be merged.".to_string()],
+                    )
+                } else if !disabled_in.is_empty() {
+                    (
+                        format!("Resolved: Used from {}", active_in[0]),
+                        vec![format!(
+                            "Conflict resolved via toggle. Active in {} (disabled in {}).",
+                            active_in[0],
+                            disabled_in.join(", ")
+                        )],
+                    )
+                } else {
+                    (
+                        format!("Exclusive to {}", present_names[0]),
+                        vec![format!(
+                            "This file exists only in {}. It will be copied directly to the merged folder.",
+                            present_names[0]
+                        )],
+                    )
+                };
+
                 reports.push(FileReport {
                     relative_path: rel.clone(),
                     level: ConflictLevel::Safe,
                     file_type,
-                    summary: format!("Exclusive to {}", present_names[0]),
+                    summary,
                     present_in_mods: present_names.clone(),
-                    details: vec![format!("This file exists only in {}. It will be copied directly to the merged folder.", present_names[0])],
+                    details,
                     sub_items: vec![],
+                    winner_mod: effective_winner,
+                    overwritten_mods: effective_overwritten,
+                    disabled_in_mods: disabled_in,
                 });
+                continue;
             } else {
+                let active_mods: Vec<&(String, HashMap<String, PathBuf>)> = present_mods
+                    .into_iter()
+                    .filter(|(name, _)| active_in.contains(name))
+                    .collect();
+
+                // Check file sizes first to avoid reading gigabytes of data into RAM
+                let mut sizes = Vec::new();
+                for (_, files) in &active_mods {
+                    let full_path = &files[&rel];
+                    let sz = fs::metadata(full_path).map(|m| m.len()).unwrap_or(0);
+                    sizes.push(sz);
+                }
+
+                let same_size = sizes.windows(2).all(|w| w[0] == w[1]);
+                let lower_rel = rel.to_lowercase();
+                let is_mergeable = lower_rel.ends_with(".emevd.dcx")
+                    || lower_rel.ends_with(".emevd")
+                    || lower_rel.ends_with(".msb")
+                    || lower_rel.contains("parambnd")
+                    || lower_rel.contains("msgbnd")
+                    || lower_rel.contains("talkesdbnd")
+                    || lower_rel.contains("anibnd")
+                    || lower_rel.ends_with(".fmg")
+                    || lower_rel.ends_with(".param")
+                    || lower_rel.ends_with(".esd");
+
+                // Fast path: if sizes differ and it's not a mergeable container, it's immediately a direct collision
+                if !same_size && !is_mergeable {
+                    conflict_count += 1;
+                    reports.push(FileReport {
+                        relative_path: rel.clone(),
+                        level: ConflictLevel::Conflict,
+                        file_type,
+                        summary: format!("Direct Collision ({} mods)", active_in.len()),
+                        present_in_mods: present_names.clone(),
+                        details: vec![
+                            format!("The active mods [{}] modify this file with different content.", active_in.join(", ")),
+                            "Direct asset collision; the mod version with the highest priority will prevail.".to_string(),
+                        ],
+                        sub_items: vec![],
+                        winner_mod: effective_winner,
+                        overwritten_mods: effective_overwritten,
+                        disabled_in_mods: disabled_in,
+                    });
+                    continue;
+                }
+
+                // If it's a huge asset file (> 50 MB) and not a mergeable container, don't read into RAM
+                if !is_mergeable && sizes.iter().any(|&s| s > 50_000_000) {
+                    conflict_count += 1;
+                    reports.push(FileReport {
+                        relative_path: rel.clone(),
+                        level: ConflictLevel::Conflict,
+                        file_type,
+                        summary: format!("Large Asset Collision ({} mods)", active_in.len()),
+                        present_in_mods: present_names.clone(),
+                        details: vec![
+                            format!("The active mods [{}] both provide this large asset archive.", active_in.join(", ")),
+                            "Non-mergeable large asset; the mod version with highest priority will prevail.".to_string(),
+                        ],
+                        sub_items: vec![],
+                        winner_mod: effective_winner,
+                        overwritten_mods: effective_overwritten,
+                        disabled_in_mods: disabled_in,
+                    });
+                    continue;
+                }
+
                 let mut datas: Vec<Vec<u8>> = Vec::new();
-                for (_, files) in &present_mods {
+                for (_, files) in &active_mods {
                     let full_path = &files[&rel];
                     let d = fs::read(full_path).map_err(|e| format!("Error reading {}: {}", full_path.display(), e))?;
                     datas.push(d);
@@ -138,22 +281,58 @@ impl Scanner {
                         present_in_mods: present_names.clone(),
                         details: vec![format!("Exactly identical file in: {}.", present_names.join(", "))],
                         sub_items: vec![],
+                        winner_mod: effective_winner,
+                        overwritten_mods: effective_overwritten,
+                        disabled_in_mods: disabled_in,
                     });
-                } else {
-                    let lower_rel = rel.to_lowercase();
-
-                    if lower_rel.ends_with(".emevd.dcx") || lower_rel.ends_with(".emevd") {
-                        // Deep EMEVD inspection
-                        let report = Self::inspect_emevd_multi(&rel, &file_type, &present_names, &datas);
-                        match report.level {
-                            ConflictLevel::Safe => safe_count += 1,
-                            ConflictLevel::Mergeable => mergeable_count += 1,
-                            ConflictLevel::Conflict => conflict_count += 1,
+                } else if lower_rel.ends_with(".emevd.dcx") || lower_rel.ends_with(".emevd") {
+                    // Deep EMEVD inspection
+                    let mut report = Self::inspect_emevd_multi(&rel, &file_type, &present_names, &datas);
+                    report.winner_mod = effective_winner;
+                    report.overwritten_mods = effective_overwritten;
+                    report.disabled_in_mods = disabled_in;
+                    match report.level {
+                        ConflictLevel::Safe => safe_count += 1,
+                        ConflictLevel::Mergeable => mergeable_count += 1,
+                        ConflictLevel::Conflict => conflict_count += 1,
+                    }
+                    reports.push(report);
+                } else if lower_rel.ends_with(".msb") {
+                    // Deep MSB inspection
+                    let mut report = Self::inspect_msb_multi(&rel, &file_type, &present_names, &datas);
+                    report.winner_mod = effective_winner;
+                    report.overwritten_mods = effective_overwritten;
+                    report.disabled_in_mods = disabled_in;
+                    match report.level {
+                        ConflictLevel::Safe => safe_count += 1,
+                        ConflictLevel::Mergeable => mergeable_count += 1,
+                        ConflictLevel::Conflict => conflict_count += 1,
+                    }
+                    reports.push(report);
+                } else if is_mergeable {
+                    // Try parsing mergeable BND3 archives (parambnd, talkesdbnd, msgbnd, anibnd, etc.)
+                    let mut bnds: Vec<Bnd3Archive> = Vec::new();
+                    let mut all_bnd = true;
+                    for d in &datas {
+                        match Bnd3Archive::parse(d) {
+                            Ok(bnd) => bnds.push(bnd),
+                            Err(_) => {
+                                all_bnd = false;
+                                break;
+                            }
                         }
-                        reports.push(report);
-                    } else if lower_rel.ends_with(".msb") {
-                        // Deep MSB inspection
-                        let report = Self::inspect_msb_multi(&rel, &file_type, &present_names, &datas);
+                    }
+
+                    if all_bnd {
+                        let report = Self::inspect_bnd3_multi(
+                            &rel,
+                            &file_type,
+                            &present_names,
+                            &bnds,
+                            effective_winner.as_deref(),
+                            &effective_overwritten,
+                            &disabled_in,
+                        );
                         match report.level {
                             ConflictLevel::Safe => safe_count += 1,
                             ConflictLevel::Mergeable => mergeable_count += 1,
@@ -161,44 +340,41 @@ impl Scanner {
                         }
                         reports.push(report);
                     } else {
-                        // Try parsing all as BND3 archives (parambnd, talkesdbnd, msgbnd, etc.)
-                        let mut bnds: Vec<Bnd3Archive> = Vec::new();
-                        let mut all_bnd = true;
-                        for d in &datas {
-                            match Bnd3Archive::parse(d) {
-                                Ok(bnd) => bnds.push(bnd),
-                                Err(_) => {
-                                    all_bnd = false;
-                                    break;
-                                }
-                            }
-                        }
-
-                        if all_bnd {
-                            let report = Self::inspect_bnd3_multi(&rel, &file_type, &present_names, &bnds);
-                            match report.level {
-                                ConflictLevel::Safe => safe_count += 1,
-                                ConflictLevel::Mergeable => mergeable_count += 1,
-                                ConflictLevel::Conflict => conflict_count += 1,
-                            }
-                            reports.push(report);
-                        } else {
-                            // Loose file collision across multiple mods
-                            conflict_count += 1;
-                            reports.push(FileReport {
-                                relative_path: rel.clone(),
-                                level: ConflictLevel::Conflict,
-                                file_type,
-                                summary: format!("Direct Collision ({} mods)", present_names.len()),
-                                present_in_mods: present_names.clone(),
-                                details: vec![
-                                    format!("The mods [{}] modify this file with different content.", present_names.join(", ")),
-                                    "Not an automatically mergeable container; the mod version with the highest priority will prevail.".to_string(),
-                                ],
-                                sub_items: vec![],
-                            });
-                        }
+                        conflict_count += 1;
+                        reports.push(FileReport {
+                            relative_path: rel.clone(),
+                            level: ConflictLevel::Conflict,
+                            file_type,
+                            summary: format!("Direct Collision ({} mods)", present_names.len()),
+                            present_in_mods: present_names.clone(),
+                            details: vec![
+                                format!("The mods [{}] modify this file with different content.", present_names.join(", ")),
+                                "Not an automatically mergeable container; the mod version with the highest priority will prevail.".to_string(),
+                            ],
+                            sub_items: vec![],
+                            winner_mod: effective_winner,
+                            overwritten_mods: effective_overwritten,
+                            disabled_in_mods: disabled_in,
+                        });
                     }
+                } else {
+                    // Loose asset collision across multiple mods
+                    conflict_count += 1;
+                    reports.push(FileReport {
+                        relative_path: rel.clone(),
+                        level: ConflictLevel::Conflict,
+                        file_type,
+                        summary: format!("Direct Collision ({} mods)", present_names.len()),
+                        present_in_mods: present_names.clone(),
+                        details: vec![
+                            format!("The mods [{}] modify this file with different content.", present_names.join(", ")),
+                            "Direct asset collision; the mod version with highest priority will prevail.".to_string(),
+                        ],
+                        sub_items: vec![],
+                        winner_mod: effective_winner,
+                        overwritten_mods: effective_overwritten,
+                        disabled_in_mods: disabled_in,
+                    });
                 }
             }
         }
@@ -229,6 +405,7 @@ impl Scanner {
         let p = path.to_lowercase();
         if p.contains("msgbnd") { "Texts / Menus (MSGBND)".to_string() }
         else if p.contains("parambnd") { "Game Parameters (PARAMBND)".to_string() }
+        else if p.contains("anibnd") { "Character / Animations (ANIBND)".to_string() }
         else if p.contains("emevd") { "Event Scripts (EMEVD)".to_string() }
         else if p.contains("talkesdbnd") { "NPC Dialogues / Menus (TALKESD)".to_string() }
         else if p.ends_with(".msb") { "MapStudio / Entities (MSB)".to_string() }
@@ -263,6 +440,9 @@ impl Scanner {
                         present_in_mods: mod_names.to_vec(),
                         details: vec!["Corrupted EMEVD file or unsupported format.".to_string()],
                         sub_items: vec![],
+                        winner_mod: None,
+                        overwritten_mods: Vec::new(),
+                        disabled_in_mods: Vec::new(),
                     };
                 }
             }
@@ -301,6 +481,9 @@ impl Scanner {
                     "To avoid anomalous behavior on the map, the version with the highest priority will prevail.".to_string(),
                 ],
                 sub_items: vec![],
+                winner_mod: None,
+                overwritten_mods: Vec::new(),
+                disabled_in_mods: Vec::new(),
             }
         } else {
             FileReport {
@@ -314,6 +497,9 @@ impl Scanner {
                     "The scripts can be merged completely safely via event injection.".to_string(),
                 ],
                 sub_items: vec![],
+                winner_mod: None,
+                overwritten_mods: Vec::new(),
+                disabled_in_mods: Vec::new(),
             }
         }
     }
@@ -345,6 +531,9 @@ impl Scanner {
                         present_in_mods: mod_names.to_vec(),
                         details: vec!["Could not read map entities.".to_string()],
                         sub_items: vec![],
+                        winner_mod: None,
+                        overwritten_mods: Vec::new(),
+                        disabled_in_mods: Vec::new(),
                     };
                 }
             }
@@ -383,6 +572,9 @@ impl Scanner {
                     "If merged without remapping, event scripts will trigger the wrong object in the game!".to_string(),
                 ],
                 sub_items: vec![],
+                winner_mod: None,
+                overwritten_mods: Vec::new(),
+                disabled_in_mods: Vec::new(),
             }
         } else {
             FileReport {
@@ -396,6 +588,9 @@ impl Scanner {
                     "Map parts can be unified with no cross-collision danger.".to_string(),
                 ],
                 sub_items: vec![],
+                winner_mod: None,
+                overwritten_mods: Vec::new(),
+                disabled_in_mods: Vec::new(),
             }
         }
     }
@@ -405,6 +600,9 @@ impl Scanner {
         file_type: &str,
         mod_names: &[String],
         bnds: &[Bnd3Archive],
+        winner_name: Option<&str>,
+        overwritten_names: &[String],
+        disabled_in_mods: &[String],
     ) -> FileReport {
         let mut mod_submaps: Vec<HashMap<String, &BndEntry>> = Vec::new();
         let mut all_sub_names: HashSet<String> = HashSet::new();
@@ -421,6 +619,13 @@ impl Scanner {
         let mut sub_items = Vec::new();
         let mut has_hard_conflict = false;
         let mut has_mergeable = false;
+
+        let active_val_str = winner_name.map(|w| format!("Winner (#1): {}", w));
+        let inactive_val_str = if !overwritten_names.is_empty() {
+            Some(format!("Overwritten: {}", overwritten_names.join(", ")))
+        } else {
+            None
+        };
 
         for sub_name in &all_sub_names {
             let mut present_indices: Vec<usize> = Vec::new();
@@ -477,6 +682,9 @@ impl Scanner {
                         name: sub_name.clone(),
                         level: ConflictLevel::Conflict,
                         detail: format!("Conflict in {} texts with same ID between mods.", collided_ids.len()),
+                        active_val: active_val_str.clone(),
+                        inactive_val: inactive_val_str.clone(),
+                        mod_values: HashMap::new(),
                         mod_items: mod_items_map,
                         overlapping_items: collided_ids.len(),
                     });
@@ -485,27 +693,104 @@ impl Scanner {
                     sub_items.push(SubItemReport {
                         name: sub_name.clone(),
                         level: ConflictLevel::Mergeable,
-                        detail: "Safely mergeable (all IDs are compatible between mods).".to_string(),
+                        detail: "Safely mergeable (all text IDs are compatible between mods).".to_string(),
+                        active_val: None,
+                        inactive_val: None,
+                        mod_values: HashMap::new(),
                         mod_items: mod_items_map,
                         overlapping_items: 0,
                     });
                 }
             } else if sub_name.ends_with(".param") {
                 let mut mod_items_map = HashMap::new();
+                let mut parsed_params = Vec::new();
                 for &idx in &present_indices {
                     let name = &mod_names[idx];
                     let data = &mod_submaps[idx][sub_name].data;
-                    let rows = ParamParser::parse_row_ids(data);
+                    let rows = ParamParser::parse_rows(data);
                     mod_items_map.insert(name.clone(), rows.len());
+                    parsed_params.push((name.clone(), rows));
                 }
 
-                has_mergeable = true;
+                let mut colliding_rows = Vec::new();
+                for i in 0..parsed_params.len() {
+                    for j in (i + 1)..parsed_params.len() {
+                        let (_name_a, rows_a) = &parsed_params[i];
+                        let (_name_b, rows_b) = &parsed_params[j];
+                        for (id, bytes_a) in rows_a {
+                            if let Some(bytes_b) = rows_b.get(id) {
+                                if bytes_a != bytes_b && !colliding_rows.contains(id) {
+                                    colliding_rows.push(*id);
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if !colliding_rows.is_empty() {
+                    colliding_rows.sort();
+                    has_hard_conflict = true;
+                    let sample_str = colliding_rows.iter().take(5).map(|id| id.to_string()).collect::<Vec<_>>().join(", ");
+                    sub_items.push(SubItemReport {
+                        name: format!("{}: Direct Row Discrepancy ({} rows)", sub_name, colliding_rows.len()),
+                        level: ConflictLevel::Conflict,
+                        detail: format!("Multiple mods set conflicting values for {} rows. Sample row IDs: [{}]", colliding_rows.len(), sample_str),
+                        active_val: active_val_str.clone(),
+                        inactive_val: inactive_val_str.clone(),
+                        mod_values: HashMap::new(),
+                        mod_items: mod_items_map,
+                        overlapping_items: colliding_rows.len(),
+                    });
+                } else {
+                    has_mergeable = true;
+                    sub_items.push(SubItemReport {
+                        name: sub_name.clone(),
+                        level: ConflictLevel::Mergeable,
+                        detail: "Mergeable parameters. All row IDs are unique or identical across mods.".to_string(),
+                        active_val: None,
+                        inactive_val: None,
+                        mod_values: HashMap::new(),
+                        mod_items: mod_items_map,
+                        overlapping_items: 0,
+                    });
+                }
+            } else if sub_name.ends_with(".hkx") {
+                has_hard_conflict = true;
+                let mut mod_items_map = HashMap::new();
+                let mut mod_values = HashMap::new();
+                for &idx in &present_indices {
+                    let sz = mod_submaps[idx][sub_name].data.len();
+                    mod_items_map.insert(mod_names[idx].clone(), sz);
+                    mod_values.insert(mod_names[idx].clone(), format!("{:.1} KB", sz as f64 / 1024.0));
+                }
                 sub_items.push(SubItemReport {
-                    name: sub_name.clone(),
-                    level: ConflictLevel::Mergeable,
-                    detail: "Mergeable parameters. IDs will be combined respecting mod priority.".to_string(),
+                    name: format!("Animation: {}", sub_name),
+                    level: ConflictLevel::Conflict,
+                    detail: format!("Multiple mods provide different Havok animation/skeleton data for internal entry '{}'.", sub_name),
+                    active_val: active_val_str.clone(),
+                    inactive_val: inactive_val_str.clone(),
+                    mod_values,
                     mod_items: mod_items_map,
-                    overlapping_items: 0,
+                    overlapping_items: 1,
+                });
+            } else if sub_name.ends_with(".tae") {
+                has_hard_conflict = true;
+                let mut mod_items_map = HashMap::new();
+                let mut mod_values = HashMap::new();
+                for &idx in &present_indices {
+                    let sz = mod_submaps[idx][sub_name].data.len();
+                    mod_items_map.insert(mod_names[idx].clone(), sz);
+                    mod_values.insert(mod_names[idx].clone(), format!("{:.1} KB", sz as f64 / 1024.0));
+                }
+                sub_items.push(SubItemReport {
+                    name: format!("TimeAct Table: {}", sub_name),
+                    level: ConflictLevel::Conflict,
+                    detail: format!("Multiple mods alter TimeAct event timing/attacks in internal table '{}'.", sub_name),
+                    active_val: active_val_str.clone(),
+                    inactive_val: inactive_val_str.clone(),
+                    mod_values,
+                    mod_items: mod_items_map,
+                    overlapping_items: 1,
                 });
             } else if sub_name.ends_with(".esd") {
                 // Talk script ESD entry
@@ -518,19 +803,28 @@ impl Scanner {
                     name: sub_name.clone(),
                     level: ConflictLevel::Mergeable,
                     detail: "Dialogue/Menu script (.esd) present in multiple mods. On merge, priority mod prevails.".to_string(),
+                    active_val: active_val_str.clone(),
+                    inactive_val: inactive_val_str.clone(),
+                    mod_values: HashMap::new(),
                     mod_items: mod_items_map,
                     overlapping_items: 1,
                 });
             } else {
                 has_hard_conflict = true;
                 let mut mod_items_map = HashMap::new();
+                let mut mod_values = HashMap::new();
                 for &idx in &present_indices {
-                    mod_items_map.insert(mod_names[idx].clone(), mod_submaps[idx][sub_name].data.len());
+                    let sz = mod_submaps[idx][sub_name].data.len();
+                    mod_items_map.insert(mod_names[idx].clone(), sz);
+                    mod_values.insert(mod_names[idx].clone(), format!("{:.1} KB", sz as f64 / 1024.0));
                 }
                 sub_items.push(SubItemReport {
                     name: sub_name.clone(),
                     level: ConflictLevel::Conflict,
                     detail: "Internal sub-file has non-mergeable conflicting changes.".to_string(),
+                    active_val: active_val_str.clone(),
+                    inactive_val: inactive_val_str.clone(),
+                    mod_values,
                     mod_items: mod_items_map,
                     overlapping_items: 1,
                 });
@@ -559,6 +853,9 @@ impl Scanner {
             present_in_mods: mod_names.to_vec(),
             details: vec![format!("Modified in {} mods: [{}].", mod_names.len(), mod_names.join(", "))],
             sub_items,
+            winner_mod: winner_name.map(|s| s.to_string()),
+            overwritten_mods: overwritten_names.to_vec(),
+            disabled_in_mods: disabled_in_mods.to_vec(),
         }
     }
 
@@ -578,8 +875,16 @@ impl Scanner {
             let path = entry.path();
 
             if path.is_dir() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name == "ptde" {
+                    continue;
+                }
                 Self::walk_dir(root, &path, map)?;
             } else if path.is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if is_ignored_non_game_file(&name) {
+                    continue;
+                }
                 if let Ok(rel) = path.strip_prefix(root) {
                     let rel_str = rel.to_string_lossy().replace('\\', "/");
                     let canonical = resolve_canonical_game_path(&rel_str);
@@ -589,6 +894,21 @@ impl Scanner {
         }
         Ok(())
     }
+}
+
+pub fn is_ignored_non_game_file(name: &str) -> bool {
+    let lower = name.to_lowercase();
+    lower.ends_with(".exe")
+        || lower.ends_with(".txt")
+        || lower.ends_with(".md")
+        || lower.ends_with(".pdf")
+        || lower.ends_with(".zip")
+        || lower.ends_with(".rar")
+        || lower.ends_with(".7z")
+        || lower.ends_with(".url")
+        || lower.ends_with(".lnk")
+        || lower == "thumbs.db"
+        || lower == ".ds_store"
 }
 
 pub fn resolve_canonical_game_path(rel_path: &str) -> String {
@@ -711,4 +1031,99 @@ pub fn resolve_canonical_game_path(rel_path: &str) -> String {
     }
 
     normalized
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_bnd3_malformed_never_panics() {
+        let mut garbage = b"BND307D7R6\0\0\0\0\0\0".to_vec();
+        garbage.extend_from_slice(&999999u32.to_le_bytes()); // huge file count
+        garbage.resize(200, 0xCC);
+        let res = Bnd3Archive::parse(&garbage);
+        assert!(res.is_ok() || res.is_err()); // never panics
+    }
+
+    #[test]
+    fn test_real_mods_scan() {
+        let p1 = r"mods/Dark Souls Re-Remastered 2.0 RC4 (full mod)-642-02032026-RC4-1770363811(1)";
+        let p2 = r"mods/The Fading Flame 2.0.8-1043-2-0-8-1757450657";
+        if Path::new(p1).exists() && Path::new(p2).exists() {
+            let mods = vec![
+                ModInput { name: "Dark Souls Re-Remastered".into(), path: p1.into(), variant: None, disabled_files: vec![] },
+                ModInput { name: "The Fading Flame".into(), path: p2.into(), variant: None, disabled_files: vec![] },
+            ];
+            let res = Scanner::scan_multi(&mods).expect("Scan should not fail");
+            assert!(res.summary.total_examined > 0);
+        }
+    }
+
+    #[test]
+    fn test_doa_dsrr_scan() {
+        let p1 = r"mods/Dark Souls Re-Remastered 2.0 RC4 (full mod)-642-02032026-RC4-1770363811(1)";
+        let p2 = r"mods/Daughters of Ash Installer-140-1-6-0-1671456763";
+        if Path::new(p1).exists() && Path::new(p2).exists() {
+            let mods = vec![
+                ModInput { name: "Daughters of Ash".into(), path: p2.into(), variant: None, disabled_files: vec![] },
+                ModInput { name: "Dark Souls Re-Remastered".into(), path: p1.into(), variant: None, disabled_files: vec![] },
+            ];
+            let res = Scanner::scan_multi(&mods).expect("Scan should not fail");
+            println!("TOTAL EXAMINED: {}", res.summary.total_examined);
+            println!("SAFE: {}", res.summary.safe_count);
+            println!("MERGEABLE: {}", res.summary.mergeable_count);
+            println!("CONFLICT: {}", res.summary.conflict_count);
+
+            let mut doa_files = 0;
+            let mut ptde_files = 0;
+            for f in &res.files {
+                if f.present_in_mods.contains(&"Daughters of Ash".to_string()) {
+                    doa_files += 1;
+                    if f.relative_path.contains("ptde") {
+                        ptde_files += 1;
+                    }
+                }
+            }
+            println!("DOA FILES COUNT: {}", doa_files);
+            println!("PTDE IN DETECTED: {}", ptde_files);
+            let mut disabled_in_dsrr_strict = Vec::new();
+            for f in &res.files {
+                let lower = f.relative_path.to_lowercase().replace('\\', "/");
+                let is_colliding = f.present_in_mods.len() > 1 && f.present_in_mods.contains(&"Dark Souls Re-Remastered".to_string());
+                let is_map_structure = lower.starts_with("map/") && !(
+                    lower.ends_with(".tpfbdt") || lower.ends_with(".tpfbhd") || lower.ends_with(".tpf.dcx") || lower.ends_with(".tpf")
+                );
+                let is_non_asset = lower.starts_with("event/")
+                    || lower.starts_with("script/")
+                    || lower.ends_with(".msb")
+                    || lower.ends_with(".anibnd.dcx")
+                    || lower.contains(".esd.")
+                    || lower.ends_with(".esd.dcx")
+                    || lower.ends_with(".chresdbnd.dcx")
+                    || lower.starts_with("param/")
+                    || lower.starts_with("menu/")
+                    || lower.starts_with("sfx/")
+                    || is_map_structure;
+
+                if f.present_in_mods.contains(&"Dark Souls Re-Remastered".to_string()) && (is_colliding || is_non_asset) {
+                    disabled_in_dsrr_strict.push(f.relative_path.clone());
+                }
+            }
+            println!("STRICT DISABLED FILES IN DSRR: {}", disabled_in_dsrr_strict.len());
+
+            // Run scan with strict preset applied
+            let strict_mods = vec![
+                ModInput { name: "Daughters of Ash".into(), path: p2.into(), variant: None, disabled_files: vec![] },
+                ModInput { name: "Dark Souls Re-Remastered".into(), path: p1.into(), variant: None, disabled_files: disabled_in_dsrr_strict },
+            ];
+            let res_strict = Scanner::scan_multi(&strict_mods).expect("Strict scan should succeed");
+            println!("STRICT TOTAL EXAMINED: {}", res_strict.summary.total_examined);
+            println!("STRICT SAFE: {}", res_strict.summary.safe_count);
+            println!("STRICT MERGEABLE: {}", res_strict.summary.mergeable_count);
+            println!("STRICT CONFLICT: {}", res_strict.summary.conflict_count);
+            assert_eq!(res_strict.summary.conflict_count, 0, "Strict preset must have 0 conflicts!");
+            assert_eq!(res_strict.summary.mergeable_count, 0, "Strict preset must have 0 mergeable collisions!");
+        }
+    }
 }

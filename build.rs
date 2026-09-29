@@ -10,8 +10,8 @@ fn main() {
         res.set("InternalName", "SoulsConflict");
         res.set("LegalCopyright", "Copyright (C) 2026 nobodyttk");
         res.set("CompanyName", "nobodyttk");
-        res.set("FileVersion", "2.0.3.0");
-        res.set("ProductVersion", "2.0.3.0");
+        res.set("FileVersion", "2.1.0.0");
+        res.set("ProductVersion", "2.1.0.0");
         res.compile().unwrap();
     }
 }

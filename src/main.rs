@@ -156,7 +156,7 @@ fn main() {
     let url = format!("http://127.0.0.1:{}", port);
     println!("============================================================");
     println!("   🔥 SoulsConflict - Mod Conflict Checker & Merger        ");
-    println!("   Version: v2.0.3 • Running in Native Window (Portable)     ");
+    println!("   Version: v2.1.0 • Running in Native Window (Portable)     ");
     println!("   Base Folder: {}", base_dir.display());
     println!("   Local server running at: {}", url);
     println!("   Close the window to terminate the application           ");
@@ -220,8 +220,16 @@ fn count_files_recursive(dir: &Path) -> usize {
         for entry in entries.filter_map(|e| e.ok()) {
             let p = entry.path();
             if p.is_dir() {
+                let name = entry.file_name().to_string_lossy().to_lowercase();
+                if name == "ptde" {
+                    continue;
+                }
                 count += count_files_recursive(&p);
             } else if p.is_file() {
+                let name = entry.file_name().to_string_lossy().to_string();
+                if scanner::is_ignored_non_game_file(&name) {
+                    continue;
+                }
                 count += 1;
             }
         }
@@ -673,13 +681,16 @@ fn handle_client(mut stream: TcpStream) {
 
     match (method.as_str(), path.as_str()) {
         ("GET", "/") => {
-            send_response(&mut stream, "200 OK", "text/html; charset=utf-8", HTML_CONTENT.as_bytes());
+            let content = fs::read("static/index.html").unwrap_or_else(|_| HTML_CONTENT.as_bytes().to_vec());
+            send_response(&mut stream, "200 OK", "text/html; charset=utf-8", &content);
         }
         ("GET", "/style.css") => {
-            send_response(&mut stream, "200 OK", "text/css; charset=utf-8", CSS_CONTENT.as_bytes());
+            let content = fs::read("static/style.css").unwrap_or_else(|_| CSS_CONTENT.as_bytes().to_vec());
+            send_response(&mut stream, "200 OK", "text/css; charset=utf-8", &content);
         }
         ("GET", "/app.js") => {
-            send_response(&mut stream, "200 OK", "application/javascript; charset=utf-8", JS_CONTENT.as_bytes());
+            let content = fs::read("static/app.js").unwrap_or_else(|_| JS_CONTENT.as_bytes().to_vec());
+            send_response(&mut stream, "200 OK", "application/javascript; charset=utf-8", &content);
         }
         ("GET", "/logo.jpg") => {
             let logo_data = include_bytes!("../img/logo.jpg");
@@ -967,23 +978,32 @@ fn handle_client(mut stream: TcpStream) {
                                 name: m.name,
                                 path: norm.to_string_lossy().to_string(),
                                 variant: m.variant,
+                                disabled_files: m.disabled_files,
                             });
                         }
                     } else {
                         // Fallback to legacy 2-mod fields
                         let p_a = if req.mod_a.trim().is_empty() { base_dir.join("mods").join("ModA") } else { PathBuf::from(req.mod_a.trim()) };
                         let p_b = if req.mod_b.trim().is_empty() { base_dir.join("mods").join("ModB") } else { PathBuf::from(req.mod_b.trim()) };
-                        resolved_inputs.push(ModInput { name: "Mod A".into(), path: normalize_mod_path(&p_a, None).to_string_lossy().into(), variant: None });
-                        resolved_inputs.push(ModInput { name: "Mod B".into(), path: normalize_mod_path(&p_b, None).to_string_lossy().into(), variant: None });
+                        resolved_inputs.push(ModInput { name: "Mod A".into(), path: normalize_mod_path(&p_a, None).to_string_lossy().into(), variant: None, disabled_files: Vec::new() });
+                        resolved_inputs.push(ModInput { name: "Mod B".into(), path: normalize_mod_path(&p_b, None).to_string_lossy().into(), variant: None, disabled_files: Vec::new() });
                     }
 
-                    match Scanner::scan_multi(&resolved_inputs) {
-                        Ok(result) => {
+                    let scan_res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+                        Scanner::scan_multi(&resolved_inputs)
+                    }));
+
+                    match scan_res {
+                        Ok(Ok(result)) => {
                             let json = serde_json::to_string(&result).unwrap();
                             send_response(&mut stream, "200 OK", "application/json", json.as_bytes());
                         }
-                        Err(err) => {
+                        Ok(Err(err)) => {
                             send_response(&mut stream, "400 Bad Request", "text/plain", err.as_bytes());
+                        }
+                        Err(_) => {
+                            let err_msg = "An unexpected error occurred while analyzing mods. One of the mod files may be corrupt or in an unsupported format.";
+                            send_response(&mut stream, "500 Internal Server Error", "text/plain", err_msg.as_bytes());
                         }
                     }
                 }
