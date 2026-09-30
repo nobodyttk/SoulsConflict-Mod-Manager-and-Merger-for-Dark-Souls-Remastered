@@ -85,6 +85,8 @@ struct FolderInfo {
     variants: Vec<String>,
     selected_variant: Option<String>,
     has_structure_issues: bool,
+    is_tpup: bool,
+    tpup_texture_count: usize,
 }
 
 #[derive(Serialize)]
@@ -477,6 +479,7 @@ fn build_folder_info(id: &str, _name: &str, rel_path: &str) -> FolderInfo {
     let variants = detect_variants(&full);
     let selected_variant = variants.first().cloned();
     let has_structure_issues = check_mod_structure_issues(&full, &variants);
+    let (is_tpup, tpup_texture_count, _) = scanner::scan_mod_tpup_details(&full);
 
     // If a clear mod subfolder was detected, use it as display name!
     let display_name = if let Some(ref sub) = subfolder_detected {
@@ -496,6 +499,8 @@ fn build_folder_info(id: &str, _name: &str, rel_path: &str) -> FolderInfo {
         variants,
         selected_variant,
         has_structure_issues,
+        is_tpup,
+        tpup_texture_count,
     }
 }
 

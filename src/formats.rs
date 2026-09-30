@@ -16,10 +16,25 @@ pub fn decompress_dcx(data: &[u8]) -> Result<Vec<u8>, String> {
     }
     let dca_idx = dca_pos.ok_or_else(|| "DCA marker not found in DCX file".to_string())?;
     let compressed = &data[dca_idx + 8..];
+
+    // Try standard ZlibDecoder first
     let mut decoder = ZlibDecoder::new(compressed);
     let mut decompressed = Vec::new();
-    decoder.read_to_end(&mut decompressed).map_err(|e| format!("zlib decompression failed: {}", e))?;
-    Ok(decompressed)
+    if decoder.read_to_end(&mut decompressed).is_ok() && !decompressed.is_empty() {
+        return Ok(decompressed);
+    }
+
+    // If zlib decoder failed (e.g. raw deflate without adler32 after 78 DA), try DeflateDecoder on payload after 78 DA
+    if compressed.len() > 2 && compressed[0] == 0x78 && compressed[1] == 0xDA {
+        use flate2::read::DeflateDecoder;
+        let mut def_decoder = DeflateDecoder::new(&compressed[2..]);
+        let mut def_decomp = Vec::new();
+        if def_decoder.read_to_end(&mut def_decomp).is_ok() && !def_decomp.is_empty() {
+            return Ok(def_decomp);
+        }
+    }
+
+    Err("zlib/deflate decompression failed for DCX payload".to_string())
 }
 
 pub fn is_dcx(data: &[u8]) -> bool {
@@ -28,36 +43,39 @@ pub fn is_dcx(data: &[u8]) -> bool {
 
 pub fn compress_dcx(data: &[u8]) -> Result<Vec<u8>, String> {
     use std::io::Write;
-    use flate2::write::ZlibEncoder;
+    use flate2::write::DeflateEncoder;
     use flate2::Compression;
 
-    let mut encoder = ZlibEncoder::new(Vec::new(), Compression::best());
-    encoder.write_all(data).map_err(|e| format!("zlib compression failed: {}", e))?;
-    let compressed = encoder.finish().map_err(|e| format!("zlib finish failed: {}", e))?;
+    let mut encoder = DeflateEncoder::new(Vec::new(), Compression::fast());
+    encoder.write_all(data).map_err(|e| format!("deflate compression failed: {}", e))?;
+    let compressed = encoder.finish().map_err(|e| format!("deflate finish failed: {}", e))?;
 
     let uncompressed_len = data.len() as u32;
-    let compressed_len = compressed.len() as u32;
+    let compressed_len = (compressed.len() + 2) as u32;
 
     // Standard FromSoftware DCX_DFLT header (76 bytes)
-    let mut header = Vec::with_capacity(76 + compressed.len());
+    // Matches DSFormats and Dark Souls Remastered engine byte-for-byte
+    let mut header = Vec::with_capacity(76 + 2 + compressed.len());
     header.extend_from_slice(b"DCX\0");
     header.extend_from_slice(&0x10000u32.to_be_bytes());
-    header.extend_from_slice(&24u32.to_be_bytes());
-    header.extend_from_slice(&36u32.to_be_bytes());
-    header.extend_from_slice(&36u32.to_be_bytes());
-    header.extend_from_slice(&44u32.to_be_bytes());
+    header.extend_from_slice(&0x18u32.to_be_bytes());
+    header.extend_from_slice(&0x24u32.to_be_bytes());
+    header.extend_from_slice(&0x24u32.to_be_bytes());
+    header.extend_from_slice(&0x2Cu32.to_be_bytes());
     header.extend_from_slice(b"DCS\0");
     header.extend_from_slice(&uncompressed_len.to_be_bytes());
     header.extend_from_slice(&compressed_len.to_be_bytes());
     header.extend_from_slice(b"DCP\0DFLT");
-    header.extend_from_slice(&32u32.to_be_bytes());
-    header.extend_from_slice(&9u32.to_be_bytes());
+    header.extend_from_slice(&0x20u32.to_be_bytes());
+    header.extend_from_slice(&0x09000000u32.to_be_bytes()); // Exact FromSoft parameter flag [0x09, 0x00, 0x00, 0x00]
     header.extend_from_slice(&0u32.to_be_bytes());
     header.extend_from_slice(&0u32.to_be_bytes());
     header.extend_from_slice(&0u32.to_be_bytes());
-    header.extend_from_slice(&0x10100u32.to_be_bytes());
+    header.extend_from_slice(&0x10100u32.to_be_bytes());    // [0x00, 0x01, 0x01, 0x00]
     header.extend_from_slice(b"DCA\0");
     header.extend_from_slice(&8u32.to_be_bytes());
+    header.push(0x78);
+    header.push(0xDA);
     header.extend_from_slice(&compressed);
 
     Ok(header)
@@ -475,6 +493,171 @@ impl MsbParser {
         }
 
         Ok(entities)
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TpfTexture {
+    pub name: String,
+    pub flags1: u32,
+    pub flags2: u32,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct TpfArchive {
+    pub textures: Vec<TpfTexture>,
+}
+
+impl TpfArchive {
+    pub fn parse(raw: &[u8]) -> Result<Self, String> {
+        let decompressed = decompress_dcx(raw)?;
+        if decompressed.len() < 16 || &decompressed[0..4] != b"TPF\0" {
+            return Err("Not a valid TPF file".to_string());
+        }
+
+        let file_count = u32::from_le_bytes(decompressed[8..12].try_into().unwrap_or([0, 0, 0, 0])) as usize;
+        let mut textures = Vec::with_capacity(file_count);
+
+        for i in 0..file_count {
+            let entry_off = 16 + i * 20;
+            if entry_off + 20 > decompressed.len() {
+                break;
+            }
+            let file_off = u32::from_le_bytes(decompressed[entry_off..entry_off + 4].try_into().unwrap_or([0, 0, 0, 0])) as usize;
+            let file_sz = u32::from_le_bytes(decompressed[entry_off + 4..entry_off + 8].try_into().unwrap_or([0, 0, 0, 0])) as usize;
+            let flags1 = u32::from_le_bytes(decompressed[entry_off + 8..entry_off + 12].try_into().unwrap_or([0, 0, 0, 0]));
+            let name_off = u32::from_le_bytes(decompressed[entry_off + 12..entry_off + 16].try_into().unwrap_or([0, 0, 0, 0])) as usize;
+            let flags2 = u32::from_le_bytes(decompressed[entry_off + 16..entry_off + 20].try_into().unwrap_or([0, 0, 0, 0]));
+
+            let name = if name_off < decompressed.len() {
+                let mut name_end = name_off;
+                while name_end < decompressed.len() && decompressed[name_end] != 0 && (name_end - name_off) < 260 {
+                    name_end += 1;
+                }
+                String::from_utf8_lossy(&decompressed[name_off..name_end]).to_string()
+            } else {
+                format!("texture_{}", i)
+            };
+
+            let bytes = if file_off < decompressed.len() {
+                let end = file_off.saturating_add(file_sz).min(decompressed.len());
+                decompressed[file_off..end].to_vec()
+            } else {
+                Vec::new()
+            };
+
+            textures.push(TpfTexture {
+                name,
+                flags1,
+                flags2,
+                bytes,
+            });
+        }
+
+        Ok(TpfArchive { textures })
+    }
+
+    pub fn to_bytes(&self) -> Result<Vec<u8>, String> {
+        let count = self.textures.len();
+        let mut out = Vec::new();
+
+        out.extend_from_slice(b"TPF\0");
+        out.extend_from_slice(&0u32.to_le_bytes()); // placeholder for total data size
+        out.extend_from_slice(&(count as u32).to_le_bytes());
+        out.extend_from_slice(&0x20300u32.to_le_bytes()); // platform flag
+
+        let entries_start = out.len();
+        out.resize(entries_start + count * 20, 0);
+
+        let mut name_offsets = Vec::with_capacity(count);
+        for tex in &self.textures {
+            name_offsets.push(out.len() as u32);
+            out.extend_from_slice(tex.name.as_bytes());
+            out.push(0);
+        }
+
+        if out.len() % 16 != 0 {
+            let pad = 16 - (out.len() % 16);
+            out.resize(out.len() + pad, 0);
+        }
+
+        let data_start = out.len();
+        let mut file_offsets = Vec::with_capacity(count);
+        for tex in &self.textures {
+            file_offsets.push(out.len() as u32);
+            out.extend_from_slice(&tex.bytes);
+            if out.len() % 16 != 0 {
+                let pad = 16 - (out.len() % 16);
+                out.resize(out.len() + pad, 0);
+            }
+        }
+        let total_data_size = (out.len() - data_start) as u32;
+
+        out[4..8].copy_from_slice(&total_data_size.to_le_bytes());
+
+        for (i, tex) in self.textures.iter().enumerate() {
+            let off = entries_start + i * 20;
+            out[off..off + 4].copy_from_slice(&file_offsets[i].to_le_bytes());
+            out[off + 4..off + 8].copy_from_slice(&(tex.bytes.len() as u32).to_le_bytes());
+            out[off + 8..off + 12].copy_from_slice(&tex.flags1.to_le_bytes());
+            out[off + 12..off + 16].copy_from_slice(&name_offsets[i].to_le_bytes());
+            out[off + 16..off + 20].copy_from_slice(&tex.flags2.to_le_bytes());
+        }
+
+        Ok(out)
+    }
+
+    pub fn inject_texture(&mut self, texture_name: &str, dds_bytes: Vec<u8>) -> bool {
+        let clean_name = texture_name.trim().trim_end_matches(".dds").trim_end_matches(".DDS");
+        for tex in &mut self.textures {
+            if tex.name.eq_ignore_ascii_case(clean_name) {
+                tex.bytes = dds_bytes;
+                return true;
+            }
+        }
+        self.textures.push(TpfTexture {
+            name: clean_name.to_string(),
+            flags1: 0,
+            flags2: 0,
+            bytes: dds_bytes,
+        });
+        true
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::path::Path;
+
+    #[test]
+    fn test_tpf_parse_and_inject() {
+        let game_file = r"C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED\menu\menu_2.tpf.dcx";
+        if Path::new(game_file).exists() {
+            let data = std::fs::read(game_file).expect("Read menu_2.tpf.dcx");
+            let mut tpf = TpfArchive::parse(&data).expect("Parse menu_2 TPF");
+            assert!(!tpf.textures.is_empty(), "menu_2 should have textures");
+            println!("Found {} textures in menu_2.tpf.dcx", tpf.textures.len());
+            for t in &tpf.textures {
+                println!(" - Texture: {}, size: {} bytes", t.name, t.bytes.len());
+            }
+
+            let has_logo = tpf.textures.iter().any(|t| t.name.to_lowercase().contains("logo"));
+            assert!(has_logo, "menu_2 must contain logo textures");
+
+            // Test injection
+            let dummy_dds = vec![0x44, 0x44, 0x53, 0x20, 0x01, 0x02, 0x03, 0x04];
+            let injected = tpf.inject_texture("Logo_02.dds", dummy_dds.clone());
+            assert!(injected);
+
+            let bytes = tpf.to_bytes().expect("Serialize TPF");
+            let re_parsed = TpfArchive::parse(&bytes).expect("Re-parse serialized TPF");
+            assert_eq!(re_parsed.textures.len(), tpf.textures.len());
+
+            let logo = re_parsed.textures.iter().find(|t| t.name.eq_ignore_ascii_case("Logo_02")).expect("Logo_02 found");
+            assert_eq!(logo.bytes, dummy_dds);
+        }
     }
 }
 

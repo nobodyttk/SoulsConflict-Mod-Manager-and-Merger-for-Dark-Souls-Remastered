@@ -109,11 +109,33 @@ impl Scanner {
             mod_files.push((m.name.clone(), files));
         }
 
+        // Group loose TPUP DDS files by their target archive container
+        // container -> Vec<(mod_name, texture_name, rel_path, full_path)>
+        let mut tpup_container_map: HashMap<String, Vec<(String, String, String, PathBuf)>> = HashMap::new();
+        let mut tpup_loose_files: HashSet<String> = HashSet::new();
+
+        for (m_name, files) in &mod_files {
+            for (rel, path) in files {
+                if let Some(info) = parse_tpup_override_path(rel) {
+                    tpup_loose_files.insert(rel.clone());
+                    tpup_container_map
+                        .entry(info.target_archive)
+                        .or_default()
+                        .push((m_name.clone(), info.texture_name, rel.clone(), path.clone()));
+                }
+            }
+        }
+
         let mut all_rel_paths: HashSet<String> = HashSet::new();
         for (_, files) in &mod_files {
             for rel in files.keys() {
-                all_rel_paths.insert(rel.clone());
+                if !tpup_loose_files.contains(rel) {
+                    all_rel_paths.insert(rel.clone());
+                }
             }
+        }
+        for target_container in tpup_container_map.keys() {
+            all_rel_paths.insert(target_container.clone());
         }
 
         let mut reports = Vec::new();
@@ -122,6 +144,151 @@ impl Scanner {
         let mut conflict_count = 0;
 
         for rel in all_rel_paths {
+            // Check if this container is a TPUP texture target
+            if let Some(entries) = tpup_container_map.get(&rel) {
+                let mut present_names: Vec<String> = Vec::new();
+                for (m_name, _) in &mod_files {
+                    let has_loose = entries.iter().any(|e| &e.0 == m_name);
+                    let has_container = mod_files.iter().find(|(name, _)| name == m_name).map(|(_, f)| f.contains_key(&rel)).unwrap_or(false);
+                    if (has_loose || has_container) && !present_names.contains(m_name) {
+                        present_names.push(m_name.clone());
+                    }
+                }
+
+                let rel_lower = rel.to_lowercase().replace('\\', "/");
+                let mut disabled_in: Vec<String> = Vec::new();
+                let mut active_in: Vec<String> = Vec::new();
+
+                for m in &present_names {
+                    let d_set = disabled_map.get(m);
+                    let is_container_disabled = d_set.map(|s| s.contains(&rel_lower)).unwrap_or(false);
+                    if is_container_disabled {
+                        disabled_in.push(m.clone());
+                    } else {
+                        active_in.push(m.clone());
+                    }
+                }
+
+                // Group active textures
+                let mut tex_mods: HashMap<String, Vec<String>> = HashMap::new();
+                let mut tex_names_order: Vec<String> = Vec::new();
+
+                for (m_name, tex_name, orig_rel, _) in entries {
+                    if !active_in.contains(m_name) {
+                        continue;
+                    }
+                    let orig_rel_lower = orig_rel.to_lowercase().replace('\\', "/");
+                    let tex_lower = tex_name.to_lowercase();
+                    if let Some(d_set) = disabled_map.get(m_name) {
+                        if d_set.contains(&orig_rel_lower) || d_set.contains(&tex_lower) || d_set.contains(&format!("{}.dds", tex_lower)) {
+                            continue;
+                        }
+                    }
+                    if !tex_names_order.contains(tex_name) {
+                        tex_names_order.push(tex_name.clone());
+                    }
+                    let list = tex_mods.entry(tex_name.clone()).or_default();
+                    if !list.contains(m_name) {
+                        list.push(m_name.clone());
+                    }
+                }
+
+                let mut sub_items = Vec::new();
+                let mut has_sub_conflict = false;
+                let mut collision_count = 0;
+
+                for tex in &tex_names_order {
+                    let mods_touching = &tex_mods[tex];
+                    let (sub_level, detail) = if mods_touching.len() > 1 {
+                        has_sub_conflict = true;
+                        collision_count += 1;
+                        (
+                            ConflictLevel::Conflict,
+                            format!("Texture collision: '{}' modified in [{}]", tex, mods_touching.join(", ")),
+                        )
+                    } else {
+                        (
+                            ConflictLevel::Safe,
+                            format!("Overridden from {}", mods_touching[0]),
+                        )
+                    };
+
+                    let mut mod_items = HashMap::new();
+                    for m in mods_touching {
+                        mod_items.insert(m.clone(), 1);
+                    }
+
+                    sub_items.push(SubItemReport {
+                        name: format!("{}.dds", tex),
+                        level: sub_level,
+                        detail,
+                        active_val: mods_touching.first().cloned(),
+                        inactive_val: mods_touching.get(1).cloned(),
+                        mod_values: HashMap::new(),
+                        mod_items,
+                        overlapping_items: if mods_touching.len() > 1 { mods_touching.len() } else { 0 },
+                    });
+                }
+
+                let effective_winner = active_in.first().cloned();
+                let effective_overwritten: Vec<String> = if let Some(ref w) = effective_winner {
+                    present_names.iter().filter(|m| *m != w).cloned().collect()
+                } else {
+                    present_names.iter().skip(1).cloned().collect()
+                };
+
+                let (level, summary, details) = if active_in.is_empty() {
+                    safe_count += 1;
+                    (
+                        ConflictLevel::Safe,
+                        "Disabled in all mods".to_string(),
+                        vec!["This texture archive is disabled in all mods.".to_string()],
+                    )
+                } else if has_sub_conflict {
+                    conflict_count += 1;
+                    (
+                        ConflictLevel::Conflict,
+                        format!("Texture Collision ({} textures colliding)", collision_count),
+                        vec![
+                            format!("Duplicate textures modified across active mods [{}]. Highest priority will prevail.", active_in.join(", ")),
+                        ],
+                    )
+                } else if active_in.len() > 1 {
+                    mergeable_count += 1;
+                    (
+                        ConflictLevel::Mergeable,
+                        format!("Smart Texture Merge ({} distinct DDS textures from {} mods)", sub_items.len(), active_in.len()),
+                        vec![
+                            format!("All {} distinct textures will be injected into {}.", sub_items.len(), rel),
+                            format!("Mods contributing textures: [{}].", active_in.join(", ")),
+                        ],
+                    )
+                } else {
+                    safe_count += 1;
+                    (
+                        ConflictLevel::Safe,
+                        format!("Texture Injection from {} ({} texture(s))", active_in[0], sub_items.len()),
+                        vec![
+                            format!("{} loose textures will be injected into {}.", sub_items.len(), rel),
+                        ],
+                    )
+                };
+
+                reports.push(FileReport {
+                    relative_path: rel.clone(),
+                    level,
+                    file_type: "Textures / TPF Archive".to_string(),
+                    summary,
+                    present_in_mods: present_names,
+                    details,
+                    sub_items,
+                    winner_mod: effective_winner,
+                    overwritten_mods: effective_overwritten,
+                    disabled_in_mods: disabled_in,
+                });
+                continue;
+            }
+
             let present_mods: Vec<&(String, HashMap<String, PathBuf>)> = mod_files
                 .iter()
                 .filter(|(_, files)| files.contains_key(&rel))
@@ -403,7 +570,8 @@ impl Scanner {
 
     fn detect_type(path: &str) -> String {
         let p = path.to_lowercase();
-        if p.contains("msgbnd") { "Texts / Menus (MSGBND)".to_string() }
+        if p.contains(".tpf") || p.ends_with(".tpf.dcx") || p.ends_with(".tpf") { "Textures / TPF Archive".to_string() }
+        else if p.contains("msgbnd") { "Texts / Menus (MSGBND)".to_string() }
         else if p.contains("parambnd") { "Game Parameters (PARAMBND)".to_string() }
         else if p.contains("anibnd") { "Character / Animations (ANIBND)".to_string() }
         else if p.contains("emevd") { "Event Scripts (EMEVD)".to_string() }
@@ -953,6 +1121,14 @@ pub fn resolve_canonical_game_path(rel_path: &str) -> String {
         }
     }
 
+    // Check for loose menu subfolders (e.g. menu_0/, menu_2/) or font subfolders
+    if (lower.starts_with("menu_") || lower.starts_with("menu\\")) && lower.contains('/') {
+        return format!("menu/{}", normalized);
+    }
+    if (lower.starts_with("font_") || lower.starts_with("font\\")) && lower.contains('/') {
+        return format!("font/{}", normalized);
+    }
+
     let file_name = Path::new(&normalized)
         .file_name()
         .and_then(|n| n.to_str())
@@ -1031,6 +1207,116 @@ pub fn resolve_canonical_game_path(rel_path: &str) -> String {
     }
 
     normalized
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct TpupOverrideInfo {
+    pub target_archive: String,
+    pub texture_name: String,
+    pub is_dcx: bool,
+}
+
+pub fn parse_tpup_override_path(rel_path: &str) -> Option<TpupOverrideInfo> {
+    let normalized = rel_path.replace('\\', "/");
+    let lower = normalized.to_lowercase();
+
+    let stem_path = if lower.ends_with(".dds2") {
+        &normalized[..normalized.len() - 5]
+    } else if lower.ends_with(".dds") {
+        &normalized[..normalized.len() - 4]
+    } else {
+        return None;
+    };
+
+    let p = Path::new(stem_path);
+    let parent = p.parent()?;
+    let parent_str = parent.to_string_lossy().replace('\\', "/");
+    if parent_str.is_empty() || parent_str == "." {
+        return None;
+    }
+
+    // Exclude yabber-style unpack folders like menu_local-tpf-dcx
+    if parent_str.ends_with("-tpf-dcx") || parent_str.ends_with("-tpf") {
+        return None;
+    }
+
+    let texture_name = p.file_name()?.to_string_lossy().to_string();
+    if texture_name.is_empty() {
+        return None;
+    }
+
+    let is_plain_tpf = parent_str.starts_with("parts/") || parent_str.starts_with("other/");
+    let target_archive = if is_plain_tpf {
+        format!("{}.tpf", parent_str)
+    } else {
+        format!("{}.tpf.dcx", parent_str)
+    };
+
+    Some(TpupOverrideInfo {
+        target_archive,
+        texture_name,
+        is_dcx: !is_plain_tpf,
+    })
+}
+
+pub fn scan_mod_tpup_details(mod_dir: &Path) -> (bool, usize, Vec<String>) {
+    let mut count = 0;
+    let mut targets = HashSet::new();
+    let mut has_heavy_logic = false;
+
+    let _ = walk_dir_tpup(mod_dir, mod_dir, &mut count, &mut targets, &mut has_heavy_logic);
+
+    let is_tpup = count > 0 && !has_heavy_logic;
+    let mut target_list: Vec<String> = targets.into_iter().collect();
+    target_list.sort();
+    (is_tpup, count, target_list)
+}
+
+fn walk_dir_tpup(
+    root: &Path,
+    current: &Path,
+    count: &mut usize,
+    targets: &mut HashSet<String>,
+    has_heavy_logic: &mut bool,
+) -> std::io::Result<()> {
+    if !current.is_dir() {
+        return Ok(());
+    }
+
+    for entry in fs::read_dir(current)? {
+        let entry = entry?;
+        let p = entry.path();
+        if p.is_dir() {
+            let name = entry.file_name().to_string_lossy().to_lowercase();
+            if name == "ptde" || name.starts_with('.') {
+                continue;
+            }
+            walk_dir_tpup(root, &p, count, targets, has_heavy_logic)?;
+        } else if p.is_file() {
+            let name = entry.file_name().to_string_lossy().to_string();
+            let lower = name.to_lowercase();
+            if lower.ends_with(".msb")
+                || lower.ends_with(".emevd")
+                || lower.ends_with(".emevd.dcx")
+                || lower.ends_with(".param")
+                || lower.contains("parambnd")
+                || lower.ends_with(".anibnd.dcx")
+                || lower.ends_with(".chrbnd.dcx")
+            {
+                *has_heavy_logic = true;
+            }
+
+            if let Ok(rel) = p.strip_prefix(root) {
+                let rel_str = rel.to_string_lossy().replace('\\', "/");
+                let canonical = resolve_canonical_game_path(&rel_str);
+                if let Some(info) = parse_tpup_override_path(&canonical) {
+                    *count += 1;
+                    targets.insert(info.target_archive);
+                }
+            }
+        }
+    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -1124,6 +1410,86 @@ mod tests {
             println!("STRICT CONFLICT: {}", res_strict.summary.conflict_count);
             assert_eq!(res_strict.summary.conflict_count, 0, "Strict preset must have 0 conflicts!");
             assert_eq!(res_strict.summary.mergeable_count, 0, "Strict preset must have 0 mergeable collisions!");
+        }
+    }
+
+    #[test]
+    fn test_tpup_mods_scan_and_merge() {
+        let p1 = r"mods/Dark Bandai Namco Logo-139-1-0-1556525582";
+        let p2 = r"mods/Merged HUDs-807-2-2-1750833124";
+        let p3 = r"mods/Revamped Stat Buff Icons-20-2-0";
+
+        if Path::new(p1).exists() && Path::new(p2).exists() && Path::new(p3).exists() {
+            // Verify TPUP mod detection
+            let (is_tpup1, count1, _) = scan_mod_tpup_details(Path::new(p1));
+            assert!(is_tpup1, "Dark Bandai Namco Logo must be detected as TPUP");
+            assert_eq!(count1, 1);
+
+            let (is_tpup2, count2, _) = scan_mod_tpup_details(Path::new(p2));
+            assert!(is_tpup2, "Merged HUDs must be detected as TPUP");
+            assert_eq!(count2, 6);
+
+            let (is_tpup3, count3, _) = scan_mod_tpup_details(Path::new(p3));
+            assert!(is_tpup3, "Revamped Stat Buff Icons must be detected as TPUP");
+            assert_eq!(count3, 1);
+
+            let mods = vec![
+                ModInput { name: "Dark Bandai Namco Logo".into(), path: p1.into(), variant: None, disabled_files: vec![] },
+                ModInput { name: "Merged HUDs".into(), path: p2.into(), variant: None, disabled_files: vec![] },
+                ModInput { name: "Revamped Stat Buff Icons".into(), path: p3.into(), variant: None, disabled_files: vec![] },
+            ];
+
+            let res = Scanner::scan_multi(&mods).expect("Scan TPUP mods");
+            println!("TPUP SCAN TOTAL: {}", res.summary.total_examined);
+            println!("TPUP SCAN MERGEABLE: {}", res.summary.mergeable_count);
+            println!("TPUP SCAN SAFE: {}", res.summary.safe_count);
+            println!("TPUP SCAN CONFLICT: {}", res.summary.conflict_count);
+
+            for f in &res.files {
+                println!(" - File: {}, Level: {:?}, Summary: {}", f.relative_path, f.level, f.summary);
+                for sub in &f.sub_items {
+                    println!("    * Sub-item: {}, Level: {:?}, Detail: {}", sub.name, sub.level, sub.detail);
+                }
+            }
+
+            // Both menu_2.tpf.dcx and menu_3.tpf.dcx should be Mergeable!
+            let m2 = res.files.iter().find(|f| f.relative_path.contains("menu_2")).expect("menu_2 found");
+            assert_eq!(m2.level, ConflictLevel::Mergeable, "menu_2 must be Mergeable");
+
+            let m3 = res.files.iter().find(|f| f.relative_path.contains("menu_3")).expect("menu_3 found");
+            assert_eq!(m3.level, ConflictLevel::Mergeable, "menu_3 must be Mergeable");
+
+            // Test merging
+            let req = crate::merger::MergeRequest {
+                mods: mods.clone(),
+                output_dir: "target/test_tpup_merged".into(),
+                resolution_mode: "smart".into(),
+                file_overrides: HashMap::new(),
+                mod_a: String::new(),
+                mod_b: String::new(),
+                priority: String::new(),
+            };
+            let merge_res = crate::merger::Merger::merge(&req).expect("Merge TPUP mods");
+            println!("Merge result: {}", merge_res.message);
+            assert!(merge_res.success);
+
+            // Verify merged TPF archives exist and can be parsed
+            let out_m2 = Path::new("target/test_tpup_merged/menu/menu_2.tpf.dcx");
+            assert!(out_m2.exists(), "Merged menu_2.tpf.dcx must exist");
+            let m2_bytes = std::fs::read(out_m2).expect("Read merged menu_2");
+            let m2_tpf = crate::formats::TpfArchive::parse(&m2_bytes).expect("Parse merged menu_2");
+            assert!(m2_tpf.textures.iter().any(|t| t.name.eq_ignore_ascii_case("Logo_02")), "Injected Logo_02 must exist in merged menu_2");
+            assert!(m2_tpf.textures.iter().any(|t| t.name.eq_ignore_ascii_case("Menu07_1")), "Injected Menu07_1 must exist in merged menu_2");
+
+            let out_m3 = Path::new("target/test_tpup_merged/menu/menu_3.tpf.dcx");
+            assert!(out_m3.exists(), "Merged menu_3.tpf.dcx must exist");
+            let m3_bytes = std::fs::read(out_m3).expect("Read merged menu_3");
+            let m3_tpf = crate::formats::TpfArchive::parse(&m3_bytes).expect("Parse merged menu_3");
+            assert!(m3_tpf.textures.iter().any(|t| t.name.eq_ignore_ascii_case("Icon50")), "Injected Icon50 must exist in merged menu_3");
+            assert!(m3_tpf.textures.iter().any(|t| t.name.eq_ignore_ascii_case("Menu03")), "Injected Menu03 must exist in merged menu_3");
+            assert!(m3_tpf.textures.iter().any(|t| t.name.eq_ignore_ascii_case("Menu07_7")), "Injected Menu07_7 must exist in merged menu_3");
+
+            println!("TEST TPUP MODS SCAN AND MERGE PASSED WITH FLYING COLORS!");
         }
     }
 }

@@ -2067,3 +2067,31 @@ h1 {
     background: rgba(192, 138, 48, 0.35);
     border-color: var(--gold);
 }
+
+/* ============================================================
+   TPUP Texture Override Golden Badge
+   ============================================================ */
+.btn-tpup-tag {
+    background: rgba(201, 168, 76, 0.15);
+    border: 1px solid rgba(201, 168, 76, 0.45);
+    color: var(--gold-light);
+    font-size: 0.70rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 3px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    box-shadow: 0 0 6px rgba(201, 168, 76, 0.18);
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    user-select: none;
+    cursor: default;
+    transition: all 0.2s ease;
+}
+
+.btn-tpup-tag:hover {
+    background: rgba(201, 168, 76, 0.28);
+    border-color: var(--gold);
+    box-shadow: 0 0 10px rgba(201, 168, 76, 0.35);
+}

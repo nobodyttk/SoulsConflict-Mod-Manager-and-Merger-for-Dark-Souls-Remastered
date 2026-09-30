@@ -528,8 +528,8 @@ impl Deployer {
             {
                 use std::os::windows::process::CommandExt;
                 const CREATE_NO_WINDOW: u32 = 0x08000000;
-                let res = Command::new("cmd")
-                    .args(["/C", "start", "", "steam://rungameid/570940"])
+                let res = Command::new("rundll32.exe")
+                    .args(["url.dll,FileProtocolHandler", "steam://rungameid/570940"])
                     .creation_flags(CREATE_NO_WINDOW)
                     .spawn();
 

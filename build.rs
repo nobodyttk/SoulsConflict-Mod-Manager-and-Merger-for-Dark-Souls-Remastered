@@ -12,6 +12,7 @@ fn main() {
         res.set("CompanyName", "nobodyttk");
         res.set("FileVersion", "2.1.0.0");
         res.set("ProductVersion", "2.1.0.0");
+        res.set_manifest_file("app.manifest");
         res.compile().unwrap();
     }
 }

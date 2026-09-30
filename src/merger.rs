@@ -89,6 +89,23 @@ impl Merger {
         }
         fs::create_dir_all(out_path).map_err(|e| format!("Could not create output directory: {}", e))?;
 
+        // Group loose TPUP DDS files by their target archive container
+        // container -> Vec<(mod_index, mod_name, texture_name, path_buf)>
+        let mut tpup_overrides: HashMap<String, Vec<(usize, String, String, PathBuf)>> = HashMap::new();
+        let mut tpup_loose_files: HashSet<String> = HashSet::new();
+
+        for (idx, (m_name, files)) in mod_files.iter().enumerate() {
+            for (rel, path) in files {
+                if let Some(info) = crate::scanner::parse_tpup_override_path(rel) {
+                    tpup_loose_files.insert(rel.clone());
+                    tpup_overrides
+                        .entry(info.target_archive)
+                        .or_default()
+                        .push((idx, m_name.clone(), info.texture_name, path.clone()));
+                }
+            }
+        }
+
         let mut all_rel: HashSet<String> = HashSet::new();
         for (_, files) in &mod_files {
             for rel in files.keys() {
@@ -106,6 +123,11 @@ impl Merger {
         };
 
         for rel in all_rel {
+            if tpup_loose_files.contains(&rel) {
+                // Loose DDS files are repacked into their container below, don't copy as loose files
+                continue;
+            }
+
             let present_indices: Vec<usize> = (0..mod_files.len())
                 .filter(|&i| mod_files[i].1.contains_key(&rel))
                 .collect();
@@ -151,6 +173,85 @@ impl Merger {
 
                 fs::copy(&chosen_file, &dest_file).map_err(|e| format!("Failed to copy {}: {}", rel, e))?;
                 merged += 1;
+            }
+        }
+
+        // Process TPUP texture overrides into target TPF archives
+        if !tpup_overrides.is_empty() {
+            let base_app_dir = crate::get_app_dir();
+            let vanilla_backup_dir = base_app_dir.join("vanilla_backup");
+            let deployer_cfg = crate::deployer::Deployer::load_config();
+            let game_dir = PathBuf::from(&deployer_cfg.game_path);
+
+            for (container_rel, overrides) in tpup_overrides {
+                let dest_file = out_path.join(&container_rel);
+                if let Some(parent) = dest_file.parent() {
+                    let _ = fs::create_dir_all(parent);
+                }
+
+                // 1. Locate base archive bytes
+                let base_bytes: Option<Vec<u8>> = if dest_file.exists() {
+                    fs::read(&dest_file).ok()
+                } else {
+                    let mut mod_bytes = None;
+                    for (_, files) in &mod_files {
+                        if let Some(p) = files.get(&container_rel) {
+                            if let Ok(b) = fs::read(p) {
+                                mod_bytes = Some(b);
+                                break;
+                            }
+                        }
+                    }
+                    if mod_bytes.is_some() {
+                        mod_bytes
+                    } else if vanilla_backup_dir.join(&container_rel).exists() {
+                        fs::read(vanilla_backup_dir.join(&container_rel)).ok()
+                    } else if game_dir.join(&container_rel).exists() {
+                        fs::read(game_dir.join(&container_rel)).ok()
+                    } else {
+                        None
+                    }
+                };
+
+                let is_dcx = container_rel.to_lowercase().ends_with(".dcx");
+                let mut tpf = if let Some(bytes) = base_bytes {
+                    crate::formats::TpfArchive::parse(&bytes).unwrap_or_else(|_| crate::formats::TpfArchive {
+                        textures: Vec::new(),
+                    })
+                } else {
+                    crate::formats::TpfArchive {
+                        textures: Vec::new(),
+                    }
+                };
+
+                // Deduplicate so highest priority mod wins on duplicate texture names
+                let mut seen_textures = HashSet::new();
+                let mut injected_count = 0;
+
+                let mut sorted_overrides = overrides;
+                sorted_overrides.sort_by_key(|o| o.0);
+
+                for (_mod_idx, _mod_name, tex_name, dds_path) in sorted_overrides {
+                    let tex_key = tex_name.to_lowercase();
+                    if seen_textures.insert(tex_key) {
+                        if let Ok(dds_bytes) = fs::read(&dds_path) {
+                            tpf.inject_texture(&tex_name, dds_bytes);
+                            injected_count += 1;
+                        }
+                    }
+                }
+
+                if injected_count > 0 {
+                    let serialized = tpf.to_bytes().map_err(|e| format!("Failed to serialize TPF {}: {}", container_rel, e))?;
+                    let final_data = if is_dcx {
+                        crate::formats::compress_dcx(&serialized)?
+                    } else {
+                        serialized
+                    };
+                    fs::write(&dest_file, final_data).map_err(|e| format!("Failed to write {}: {}", container_rel, e))?;
+                    merged += 1;
+                    println!("[Merger] Successfully injected {} texture(s) into '{}'.", injected_count, container_rel);
+                }
             }
         }
 

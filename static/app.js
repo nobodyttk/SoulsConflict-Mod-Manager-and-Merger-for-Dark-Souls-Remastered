@@ -176,6 +176,8 @@ const TRANSLATIONS = {
         dsrr_preset_btn_disable: "Restore Full DSRR Files",
         mod_tag_visual_layer: "Visual Layer",
         mod_tag_visual_layer_strict: "Strict Visual",
+        mod_tag_tpup: "Texture Override (TPUP)",
+        tpup_tag_title: "TPUP loose texture override mod with {count} DDS file(s). SoulsConflict will automatically pack and smart-merge them into the game's TPF archives without needing external tools.",
         mod_disable_tooltip: "Click to disable this mod in scan and merge without deleting it",
         mod_enable_tooltip: "Click to enable this mod in scan and merge",
         badge_mod_disabled: "Disabled",
@@ -353,6 +355,8 @@ const TRANSLATIONS = {
         dsrr_preset_btn_disable: "Restaurar Arquivos DSRR",
         mod_tag_visual_layer: "Camada Visual",
         mod_tag_visual_layer_strict: "Visual Rígido",
+        mod_tag_tpup: "Texturas (TPUP)",
+        tpup_tag_title: "Mod de substituição de texturas soltas (formato TPUP) com {count} textura(s) DDS. O SoulsConflict empacotará e mesclará automaticamente essas texturas nos arquivos TPF do jogo sem precisar de programas externos.",
         mod_disable_tooltip: "Clique para desativar este mod no diagnóstico e fusão sem excluí-lo",
         mod_enable_tooltip: "Clique para ativar este mod no diagnóstico e fusão",
         badge_mod_disabled: "Desativado",
@@ -1632,6 +1636,16 @@ function renderModSlots() {
             `;
         }
 
+        let tpupPresetTagHtml = '';
+        if (mod.is_tpup) {
+            const count = mod.tpup_texture_count || 1;
+            tpupPresetTagHtml = `
+                <span class="btn-tpup-tag" title="${t('tpup_tag_title', { count: count })}">
+                    ${t('mod_tag_tpup')}
+                </span>
+            `;
+        }
+
         let fixModBtnHtml = '';
         if (mod.has_structure_issues) {
             fixModBtnHtml = `
@@ -1661,6 +1675,7 @@ function renderModSlots() {
                         ${variantSelectHtml}
                         ${structureWarnHtml}
                         ${dsrrPresetTagHtml}
+                        ${tpupPresetTagHtml}
                     </div>
                     ${subfolderInfo}
                 </div>

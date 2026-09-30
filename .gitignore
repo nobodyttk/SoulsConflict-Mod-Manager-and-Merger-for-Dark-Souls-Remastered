@@ -7,6 +7,8 @@ github/
 
 # Configurações do deployer se existirem
 config.json
+vanilla_backup/
+
 
 # IDE
 .vscode/

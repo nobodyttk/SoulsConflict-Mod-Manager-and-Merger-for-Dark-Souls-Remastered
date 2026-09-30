@@ -48,26 +48,23 @@ $exeDest = Join-Path $pkgFolder "SoulsConflict.exe"
 Copy-Item $exeSrc $exeDest -Force
 
 # Optional Authenticode Code Signing
-$cert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Select-Object -First 1
-if (-not $cert) {
-    $cert = Get-ChildItem Cert:\CurrentUser\My | Where-Object { $_.Subject -like "*SoulsConflict*" } | Select-Object -First 1
-    if (-not $cert) {
-        try {
-            $cert = New-SelfSignedCertificate -Type CodeSigningCert -Subject "CN=SoulsConflict Open Source Developer (nobodyttk)" -CertStoreLocation "Cert:\CurrentUser\My" -NotAfter (Get-Date).AddYears(5)
-            Write-Host "Created developer self-signed certificate: $($cert.Subject)" -ForegroundColor Cyan
-        } catch {
-            Write-Host "Code signing certificate generation skipped." -ForegroundColor Gray
-        }
-    }
-}
-if ($cert) {
-    Write-Host "Signing executable with Authenticode certificate: $($cert.Subject)..." -ForegroundColor Cyan
+# IMPORTANT: Never sign with self-signed certificates for public distribution!
+# Antivirus engines and VirusTotal flag untrusted/self-signed certificates as high risk / trojan spoofing.
+# If no commercial trusted CA certificate is present, keeping the binary unsigned (NotSigned) is the safest
+# industry standard for open-source tools (DSMapStudio, ModEngine, Yabber, etc.).
+$trustedCert = Get-ChildItem Cert:\CurrentUser\My -CodeSigningCert | Where-Object { $_.Verify() } | Select-Object -First 1
+if ($trustedCert) {
+    Write-Host "Signing executable with verified CA certificate: $($trustedCert.Subject)..." -ForegroundColor Cyan
     try {
-        Set-AuthenticodeSignature -FilePath $exeDest -Certificate $cert -HashAlgorithm SHA256 | Out-Null
-        Set-AuthenticodeSignature -FilePath $exeSrc -Certificate $cert -HashAlgorithm SHA256 | Out-Null
+        Set-AuthenticodeSignature -FilePath $exeDest -Certificate $trustedCert -HashAlgorithm SHA256 | Out-Null
+        Set-AuthenticodeSignature -FilePath $exeSrc -Certificate $trustedCert -HashAlgorithm SHA256 | Out-Null
+        Write-Host "Authenticode signature applied successfully." -ForegroundColor Green
     } catch {
-        Write-Host "Code signing skipped: $($_.Exception.Message)" -ForegroundColor Gray
+        Write-Host "Code signing failed: $($_.Exception.Message)" -ForegroundColor Gray
     }
+} else {
+    Write-Host "No trusted commercial Code Signing CA certificate found." -ForegroundColor Yellow
+    Write-Host "Leaving binary unsigned (standard for open-source; prevents VirusTotal / Nexus false positives)." -ForegroundColor Gray
 }
 
 # Copy manuals and instructions
