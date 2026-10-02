@@ -10,8 +10,8 @@ fn main() {
         res.set("InternalName", "SoulsConflict");
         res.set("LegalCopyright", "Copyright (C) 2026 nobodyttk");
         res.set("CompanyName", "nobodyttk");
-        res.set("FileVersion", "2.1.0.0");
-        res.set("ProductVersion", "2.1.0.0");
+        res.set("FileVersion", "2.1.2.0");
+        res.set("ProductVersion", "2.1.2.0");
         res.set_manifest_file("app.manifest");
         res.compile().unwrap();
     }

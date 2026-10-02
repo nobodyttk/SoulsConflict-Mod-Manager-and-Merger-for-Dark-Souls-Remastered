@@ -1,6 +1,6 @@
 # SOULSCONFLICT ARCHITECTURE CODEX & AGENT BLUEPRINT
 **Complete Reverse-Engineering, Format Specification, and System Architecture Guide**
-*Reference Implementation: Dark Souls Remastered (v2.1.0) — Blueprint for Dark Souls III (DS3) Adaptation*
+*Reference Implementation: Dark Souls Remastered (v2.1.2) — Blueprint for Dark Souls III (DS3) Adaptation*
 
 ---
 
