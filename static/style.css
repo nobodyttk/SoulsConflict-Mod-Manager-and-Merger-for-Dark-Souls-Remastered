@@ -2095,3 +2095,81 @@ h1 {
     border-color: var(--gold);
     box-shadow: 0 0 10px rgba(201, 168, 76, 0.35);
 }
+
+/* ============================================================
+   Undead Asylum (m18) 3-Way Fix Toggle Pill Group
+   ============================================================ */
+.dsrr-preset-banner {
+    display: flex;
+    flex-direction: column;
+}
+
+.dsrr-preset-top-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+}
+
+.asylum-fix-row {
+    margin-top: 12px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(201, 168, 76, 0.2);
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    width: 100%;
+}
+
+.asylum-fix-title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.asylum-badge-tag {
+    font-size: 0.74rem;
+    font-weight: 700;
+    color: var(--gold-light);
+    letter-spacing: 0.03em;
+}
+
+.asylum-fix-help {
+    font-size: 0.76rem;
+    color: #a0aec0;
+    font-style: italic;
+}
+
+.asylum-fix-toggle-group {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.btn-asylum-pill {
+    background: rgba(255, 255, 255, 0.05);
+    border: 1px solid rgba(255, 255, 255, 0.15);
+    color: #cbd5e0;
+    font-size: 0.74rem;
+    font-weight: 600;
+    padding: 6px 13px;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.btn-asylum-pill:hover {
+    background: rgba(201, 168, 76, 0.15);
+    border-color: rgba(201, 168, 76, 0.4);
+    color: #fff;
+}
+
+.btn-asylum-pill.active {
+    background: rgba(201, 168, 76, 0.25);
+    border-color: var(--gold);
+    color: var(--gold-light);
+    box-shadow: 0 0 8px rgba(201, 168, 76, 0.3);
+    font-weight: 700;
+}

@@ -178,6 +178,15 @@ const TRANSLATIONS = {
         mod_tag_visual_layer_strict: "Strict Visual",
         mod_tag_tpup: "Texture Override (TPUP)",
         tpup_tag_title: "TPUP loose texture override mod with {count} DDS file(s). SoulsConflict will automatically pack and smart-merge them into the game's TPF archives without needing external tools.",
+        asylum_fix_title: "Undead Asylum (m18) Texture Fix",
+        asylum_fix_opt0: "0. Default (No Fix / Raw DSRR)",
+        asylum_fix_opt1: "1. Hybrid Infill (4K DSRR + Vanilla)",
+        asylum_fix_opt2: "2. Vanilla Textures (Isolate m18)",
+        asylum_fix_opt3: "3. DSRR 3D Models (FLVERs)",
+        asylum_fix_opt_none_help: "Raw DSRR textures with vanilla models. Causes red textures in the Asylum.",
+        asylum_fix_opt_hybrid_help: "Keeps DSRR 4K textures, infills missing vanilla textures, and fixes path headers so vanilla models don't render red.",
+        asylum_fix_opt_vanilla_textures_help: "Isolates m18 from DSRR. Game uses 100% original vanilla Asylum textures. Zero red texture risk.",
+        asylum_fix_opt_dsrr_flver_help: "Enables DSRR custom 3D models (FLVER) for the Asylum to match DSRR 4K textures directly.",
         mod_disable_tooltip: "Click to disable this mod in scan and merge without deleting it",
         mod_enable_tooltip: "Click to enable this mod in scan and merge",
         badge_mod_disabled: "Disabled",
@@ -357,6 +366,15 @@ const TRANSLATIONS = {
         mod_tag_visual_layer_strict: "Visual Rígido",
         mod_tag_tpup: "Texturas (TPUP)",
         tpup_tag_title: "Mod de substituição de texturas soltas (formato TPUP) com {count} textura(s) DDS. O SoulsConflict empacotará e mesclará automaticamente essas texturas nos arquivos TPF do jogo sem precisar de programas externos.",
+        asylum_fix_title: "Correção de Texturas do Asilo (m18)",
+        asylum_fix_opt0: "0. Padrão (Sem Correção / DSRR Cru)",
+        asylum_fix_opt1: "1. Mescla Híbrida (4K DSRR + Infill Vanilla)",
+        asylum_fix_opt2: "2. Asilo Vanilla (Isolar m18)",
+        asylum_fix_opt3: "3. Modelos 3D DSRR (FLVERs)",
+        asylum_fix_opt_none_help: "Texturas brutas do DSRR com modelos vanilla. Causa as texturas vermelhas no Asilo.",
+        asylum_fix_opt_hybrid_help: "Mantém texturas 4K do DSRR, preenche texturas vanilla faltantes e normaliza os caminhos para eliminar o vermelho.",
+        asylum_fix_opt_vanilla_textures_help: "Isola o m18 do DSRR. O jogo usa 100% as texturas originais do Asilo. Zero risco de textura vermelha.",
+        asylum_fix_opt_dsrr_flver_help: "Ativa os modelos 3D do DSRR (FLVER) para o Asilo, casando perfeitamente com as texturas 4K do DSRR.",
         mod_disable_tooltip: "Clique para desativar este mod no diagnóstico e fusão sem excluí-lo",
         mod_enable_tooltip: "Clique para ativar este mod no diagnóstico e fusão",
         badge_mod_disabled: "Desativado",
@@ -1014,6 +1032,20 @@ try {
     if (savedPresetMode) dsrrPresetMode = savedPresetMode;
 } catch (e) {}
 
+let dsrrAsylumFixMode = 'hybrid';
+try {
+    const savedAsylumFix = localStorage.getItem('soulsconflict_dsrr_asylum_fix');
+    if (savedAsylumFix) dsrrAsylumFixMode = savedAsylumFix;
+} catch (e) {}
+
+async function setDsrrAsylumFixMode(mode) {
+    dsrrAsylumFixMode = mode;
+    try {
+        localStorage.setItem('soulsconflict_dsrr_asylum_fix', mode);
+    } catch (e) {}
+    await applyDsrrVisualPreset(dsrrPresetMode);
+}
+
 function isDsrrMapStructureFile(relPath) {
     const lower = relPath.toLowerCase().replace(/\\/g, '/');
     if (lower.startsWith('map/')) {
@@ -1046,6 +1078,19 @@ function isDsrrStrictNonAssetFile(relPath) {
     if (lower.startsWith('param/')) return true;
     if (lower.startsWith('menu/')) return true;
     if (lower.startsWith('sfx/')) return true;
+
+    // Undead Asylum (m18) handling based on user-selected fix option
+    if (lower.startsWith('map/m18/')) {
+        if (dsrrAsylumFixMode === 'vanilla_textures') {
+            return true; // Option 2: Disable DSRR textures so Vanilla original textures remain in game
+        }
+    }
+    if (lower.startsWith('map/m18_00_00_00/') || lower.startsWith('map/m18_01_00_00/')) {
+        if (dsrrAsylumFixMode === 'dsrr_flver' && lower.endsWith('.flver.dcx')) {
+            return false; // Option 3: Enable DSRR models for Asylum
+        }
+    }
+
     if (isDsrrMapStructureFile(relPath)) return true;
     return false;
 }
@@ -1084,44 +1129,73 @@ function updateDsrrPresetBanner() {
             ? `<button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('standard')">${t('dsrr_preset_btn_enable')}</button>`
             : `<button type="button" class="btn btn-gold btn-sm" onclick="applyDsrrVisualPreset('strict')">${t('dsrr_preset_btn_enable_strict')}</button>`;
 
-        container.innerHTML = `
-            <div class="dsrr-preset-banner dsrr-preset-active">
-                <div class="dsrr-preset-left">
-                    <div class="dsrr-preset-title-row">
-                        <span class="dsrr-badge-tag active">${tagText}</span>
-                        <span class="dsrr-preset-title">${titleText}</span>
-                    </div>
-                    <div class="dsrr-preset-desc">
-                        ${descText}
-                    </div>
+        const asylumHelpKey = 'asylum_fix_opt_' + dsrrAsylumFixMode + '_help';
+        const asylumRowHtml = `
+            <div class="asylum-fix-row">
+                <div class="asylum-fix-title">
+                    <span class="asylum-badge-tag"> ${t('asylum_fix_title')}:</span>
+                    <span class="asylum-fix-help" id="asylumFixHelpText">${t(asylumHelpKey)}</span>
                 </div>
-                <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
-                    ${switchBtnHtml}
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('disable')">
-                        ${t('dsrr_preset_btn_disable')}
+                <div class="asylum-fix-toggle-group">
+                    <button type="button" class="btn-asylum-pill ${dsrrAsylumFixMode === 'none' ? 'active' : ''}" onclick="setDsrrAsylumFixMode('none')" title="${t('asylum_fix_opt_none_help')}">
+                        ${t('asylum_fix_opt0')}
+                    </button>
+                    <button type="button" class="btn-asylum-pill ${dsrrAsylumFixMode === 'hybrid' ? 'active' : ''}" onclick="setDsrrAsylumFixMode('hybrid')" title="${t('asylum_fix_opt_hybrid_help')}">
+                        ${t('asylum_fix_opt1')}
+                    </button>
+                    <button type="button" class="btn-asylum-pill ${dsrrAsylumFixMode === 'vanilla_textures' ? 'active' : ''}" onclick="setDsrrAsylumFixMode('vanilla_textures')" title="${t('asylum_fix_opt_vanilla_textures_help')}">
+                        ${t('asylum_fix_opt2')}
+                    </button>
+                    <button type="button" class="btn-asylum-pill ${dsrrAsylumFixMode === 'dsrr_flver' ? 'active' : ''}" onclick="setDsrrAsylumFixMode('dsrr_flver')" title="${t('asylum_fix_opt_dsrr_flver_help')}">
+                        ${t('asylum_fix_opt3')}
                     </button>
                 </div>
+            </div>
+        `;
+
+        container.innerHTML = `
+            <div class="dsrr-preset-banner dsrr-preset-active">
+                <div class="dsrr-preset-top-row">
+                    <div class="dsrr-preset-left">
+                        <div class="dsrr-preset-title-row">
+                            <span class="dsrr-badge-tag active">${tagText}</span>
+                            <span class="dsrr-preset-title">${titleText}</span>
+                        </div>
+                        <div class="dsrr-preset-desc">
+                            ${descText}
+                        </div>
+                    </div>
+                    <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
+                        ${switchBtnHtml}
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('disable')">
+                            ${t('dsrr_preset_btn_disable')}
+                        </button>
+                    </div>
+                </div>
+                ${asylumRowHtml}
             </div>
         `;
     } else {
         container.innerHTML = `
             <div class="dsrr-preset-banner">
-                <div class="dsrr-preset-left">
-                    <div class="dsrr-preset-title-row">
-                        <span class="dsrr-badge-tag">${t('dsrr_preset_tag_detected')}</span>
-                        <span class="dsrr-preset-title">${t('dsrr_preset_title')}</span>
+                <div class="dsrr-preset-top-row">
+                    <div class="dsrr-preset-left">
+                        <div class="dsrr-preset-title-row">
+                            <span class="dsrr-badge-tag">${t('dsrr_preset_tag_detected')}</span>
+                            <span class="dsrr-preset-title">${t('dsrr_preset_title')}</span>
+                        </div>
+                        <div class="dsrr-preset-desc">
+                            ${t('dsrr_preset_desc')}
+                        </div>
                     </div>
-                    <div class="dsrr-preset-desc">
-                        ${t('dsrr_preset_desc')}
+                    <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
+                        <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('standard')">
+                            ${t('dsrr_preset_btn_enable')}
+                        </button>
+                        <button type="button" class="btn btn-gold btn-sm" onclick="applyDsrrVisualPreset('strict')">
+                            ${t('dsrr_preset_btn_enable_strict')}
+                        </button>
                     </div>
-                </div>
-                <div class="dsrr-preset-right" style="display:flex; gap:8px; align-items:center;">
-                    <button type="button" class="btn btn-secondary btn-sm" onclick="applyDsrrVisualPreset('standard')">
-                        ${t('dsrr_preset_btn_enable')}
-                    </button>
-                    <button type="button" class="btn btn-gold btn-sm" onclick="applyDsrrVisualPreset('strict')">
-                        ${t('dsrr_preset_btn_enable_strict')}
-                    </button>
                 </div>
             </div>
         `;
@@ -1193,7 +1267,7 @@ function t(key, params = {}) {
     const dict = TRANSLATIONS[currentLang] || TRANSLATIONS['en'];
     let str = dict[key] !== undefined ? dict[key] : (TRANSLATIONS['en'][key] !== undefined ? TRANSLATIONS['en'][key] : key);
     for (const [k, v] of Object.entries(params)) {
-        str = str.replace(new RegExp(`\\{${k}\\}`, 'g'), v);
+        str = str.split('{' + k + '}').join(v);
     }
     return str;
 }
@@ -2242,7 +2316,8 @@ async function runMerge() {
             body: JSON.stringify({
                 mods: modsToMerge,
                 resolution_mode: selectedMode,
-                output_dir: ''
+                output_dir: '',
+                asylum_fix_mode: dsrrAsylumFixMode
             })
         });
 

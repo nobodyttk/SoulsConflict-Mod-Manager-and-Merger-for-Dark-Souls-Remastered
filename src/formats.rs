@@ -626,6 +626,147 @@ impl TpfArchive {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct BhdBdtEntry {
+    pub name: String,
+    pub bytes: Vec<u8>,
+}
+
+#[derive(Debug, Clone)]
+pub struct BhdBdtArchive {
+    pub flag: i32,
+    pub entries: Vec<BhdBdtEntry>,
+}
+
+impl BhdBdtArchive {
+    pub fn parse(bhd_data: &[u8], bdt_data: &[u8]) -> Result<Self, String> {
+        if bhd_data.len() < 32 {
+            return Err("BHD file too small for header".into());
+        }
+        if &bhd_data[0..10] != b"BHF307D7R6" {
+            return Err("Invalid BHD magic".into());
+        }
+        let flag = i32::from_le_bytes(bhd_data[12..16].try_into().map_err(|e| format!("{}", e))?);
+        let count = i32::from_le_bytes(bhd_data[16..20].try_into().map_err(|e| format!("{}", e))?) as usize;
+
+        if bdt_data.len() < 16 || &bdt_data[0..10] != b"BDF307D7R6" {
+            return Err("Invalid BDT magic".into());
+        }
+
+        let mut entries = Vec::with_capacity(count);
+        let header_stride = 24;
+        let headers_start = 32;
+
+        for i in 0..count {
+            let offset = headers_start + i * header_stride;
+            if offset + 24 > bhd_data.len() {
+                return Err("BHD header table truncated".into());
+            }
+            let file_size = i32::from_le_bytes(bhd_data[offset+4..offset+8].try_into().map_err(|e| format!("{}", e))?) as usize;
+            let file_offset = i32::from_le_bytes(bhd_data[offset+8..offset+12].try_into().map_err(|e| format!("{}", e))?) as usize;
+            let name_offset = i32::from_le_bytes(bhd_data[offset+16..offset+20].try_into().map_err(|e| format!("{}", e))?) as usize;
+
+            if file_offset + file_size > bdt_data.len() {
+                return Err(format!("BDT payload out of bounds for entry {}", i));
+            }
+            let file_bytes = bdt_data[file_offset..file_offset + file_size].to_vec();
+
+            let mut name_end = name_offset;
+            while name_end < bhd_data.len() && bhd_data[name_end] != 0 {
+                name_end += 1;
+            }
+            let name = String::from_utf8_lossy(&bhd_data[name_offset..name_end]).to_string();
+
+            entries.push(BhdBdtEntry {
+                name,
+                bytes: file_bytes,
+            });
+        }
+
+        Ok(Self { flag, entries })
+    }
+
+    pub fn to_bytes(&self) -> Result<(Vec<u8>, Vec<u8>), String> {
+        let mut bhd = Vec::new();
+        let mut bdt = Vec::new();
+
+        bhd.extend_from_slice(b"BHF307D7R6\0\0");
+        bhd.extend_from_slice(&self.flag.to_le_bytes());
+        bhd.extend_from_slice(&(self.entries.len() as i32).to_le_bytes());
+        bhd.extend_from_slice(&0i32.to_le_bytes());
+        bhd.extend_from_slice(&0i32.to_le_bytes());
+        bhd.extend_from_slice(&0i32.to_le_bytes());
+
+        bdt.extend_from_slice(b"BDF307D7R6\0\0");
+        bdt.extend_from_slice(&0i32.to_le_bytes());
+
+        let string_table_start = 32 + self.entries.len() * 24;
+        let mut current_name_offset = string_table_start;
+
+        let mut name_bytes_list = Vec::with_capacity(self.entries.len());
+        for entry in &self.entries {
+            let mut nb = entry.name.as_bytes().to_vec();
+            nb.push(0);
+            name_bytes_list.push(nb);
+        }
+
+        for (i, entry) in self.entries.iter().enumerate() {
+            let file_size = entry.bytes.len() as i32;
+            let file_offset = bdt.len() as i32;
+            let name_offset = current_name_offset as i32;
+            current_name_offset += name_bytes_list[i].len();
+
+            bhd.extend_from_slice(&0x40i32.to_le_bytes());
+            bhd.extend_from_slice(&file_size.to_le_bytes());
+            bhd.extend_from_slice(&file_offset.to_le_bytes());
+            bhd.extend_from_slice(&(i as i32).to_le_bytes());
+            bhd.extend_from_slice(&name_offset.to_le_bytes());
+            bhd.extend_from_slice(&file_size.to_le_bytes());
+
+            bdt.extend_from_slice(&entry.bytes);
+            while bdt.len() % 16 != 0 {
+                bdt.push(0);
+            }
+        }
+
+        for nb in name_bytes_list {
+            bhd.extend_from_slice(&nb);
+        }
+
+        Ok((bhd, bdt))
+    }
+
+    pub fn infill_missing_from(&mut self, fallback: &BhdBdtArchive) -> usize {
+        use std::collections::HashSet;
+
+        // Ensure all existing entries start with leading backslash (matching vanilla DSR engine lookup)
+        for entry in &mut self.entries {
+            if !entry.name.starts_with('\\') {
+                entry.name = format!("\\{}", entry.name);
+            }
+        }
+
+        let mut existing: HashSet<String> = self.entries.iter().map(|e| e.name.trim_start_matches('\\').to_lowercase()).collect();
+        let mut added = 0;
+
+        for entry in &fallback.entries {
+            let clean = entry.name.trim_start_matches('\\').to_lowercase();
+            if !existing.contains(&clean) {
+                existing.insert(clean);
+                let mut new_entry = entry.clone();
+                if !new_entry.name.starts_with('\\') {
+                    new_entry.name = format!("\\{}", new_entry.name);
+                }
+                self.entries.push(new_entry);
+                added += 1;
+            }
+        }
+        added
+    }
+}
+
+
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -659,5 +800,56 @@ mod tests {
             assert_eq!(logo.bytes, dummy_dds);
         }
     }
+
+    #[test]
+    fn test_bhd_bdt_parse_and_write() {
+        let bhd_path = r"C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED\map\m18\GI_EnvM_m18.tpfbhd";
+        let bdt_path = r"C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED\map\m18\GI_EnvM_m18.tpfbdt";
+        if Path::new(bhd_path).exists() && Path::new(bdt_path).exists() {
+            let bhd_data = std::fs::read(bhd_path).expect("Read GI_EnvM_m18.tpfbhd");
+            let bdt_data = std::fs::read(bdt_path).expect("Read GI_EnvM_m18.tpfbdt");
+
+            let archive = BhdBdtArchive::parse(&bhd_data, &bdt_data).expect("Parse BHD/BDT");
+            assert_eq!(archive.entries.len(), 9, "GI_EnvM_m18 must have 9 entries");
+            println!("Parsed {} entries from GI_EnvM_m18:", archive.entries.len());
+            for e in &archive.entries {
+                println!(" - Entry: {}, size: {} bytes", e.name, e.bytes.len());
+            }
+
+            let (new_bhd, new_bdt) = archive.to_bytes().expect("Serialize BHD/BDT");
+            let re_parsed = BhdBdtArchive::parse(&new_bhd, &new_bdt).expect("Re-parse BHD/BDT");
+            assert_eq!(re_parsed.entries.len(), archive.entries.len());
+            for (orig, rep) in archive.entries.iter().zip(re_parsed.entries.iter()) {
+                assert_eq!(orig.name, rep.name);
+                assert_eq!(orig.bytes, rep.bytes);
+            }
+            println!("BhdBdtArchive parse and serialize verified successfully!");
+        }
+    }
+
+    #[test]
+    fn test_bhd_bdt_infill() {
+        let v_bhd = r"C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED\map\m18\m18_0000.tpfbhd";
+        let v_bdt = r"C:\Program Files (x86)\Steam\steamapps\common\DARK SOULS REMASTERED\map\m18\m18_0000.tpfbdt";
+        let d_bhd = r"F:\Projetos-Geral\Darksouls1\SoulsConflict\mods\Dark Souls Re-Remastered 2.0 RC4 (full mod)-642-02032026-RC4-1770363811(1)\map\m18\m18_0000.tpfbhd";
+        let d_bdt = r"F:\Projetos-Geral\Darksouls1\SoulsConflict\mods\Dark Souls Re-Remastered 2.0 RC4 (full mod)-642-02032026-RC4-1770363811(1)\map\m18\m18_0000.tpfbdt";
+
+        if Path::new(v_bhd).exists() && Path::new(d_bhd).exists() {
+            let mut dsrr_archive = BhdBdtArchive::parse(&std::fs::read(d_bhd).unwrap(), &std::fs::read(d_bdt).unwrap()).expect("Parse DSRR m18_0000");
+            let vanilla_archive = BhdBdtArchive::parse(&std::fs::read(v_bhd).unwrap(), &std::fs::read(v_bdt).unwrap()).expect("Parse Vanilla m18_0000");
+
+            println!("DSRR entries before infill: {}", dsrr_archive.entries.len());
+            println!("Vanilla entries: {}", vanilla_archive.entries.len());
+
+            let infilled = dsrr_archive.infill_missing_from(&vanilla_archive);
+            println!("Infilled {} missing vanilla textures into DSRR!", infilled);
+            println!("Total entries after infill: {}", dsrr_archive.entries.len());
+
+            assert!(dsrr_archive.entries.len() >= 147);
+            assert!(dsrr_archive.entries.iter().all(|e| e.name.starts_with('\\')), "All entries must start with backslash");
+        }
+    }
 }
+
+
 

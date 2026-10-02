@@ -1468,6 +1468,7 @@ mod tests {
                 mod_a: String::new(),
                 mod_b: String::new(),
                 priority: String::new(),
+                asylum_fix_mode: None,
             };
             let merge_res = crate::merger::Merger::merge(&req).expect("Merge TPUP mods");
             println!("Merge result: {}", merge_res.message);

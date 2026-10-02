@@ -16,6 +16,8 @@ pub struct MergeRequest {
     pub resolution_mode: String, // "smart", "priority", "manual"
     #[serde(default)]
     pub file_overrides: HashMap<String, String>, // relative_path -> mod_name or "smart"
+    #[serde(default)]
+    pub asylum_fix_mode: Option<String>, // "hybrid", "vanilla_textures", "dsrr_flver"
     // Legacy fields for backward compatibility
     #[serde(default)]
     pub mod_a: String,
@@ -251,6 +253,53 @@ impl Merger {
                     fs::write(&dest_file, final_data).map_err(|e| format!("Failed to write {}: {}", container_rel, e))?;
                     merged += 1;
                     println!("[Merger] Successfully injected {} texture(s) into '{}'.", injected_count, container_rel);
+                }
+            }
+        }
+
+        // Hybrid Asylum (m18) texture infill & backslash path normalization
+        let asylum_mode = req.asylum_fix_mode.as_deref().unwrap_or("none");
+        if asylum_mode == "hybrid" {
+            let merged_m18_dir = out_path.join("map").join("m18");
+            if merged_m18_dir.exists() {
+                let base_app_dir = crate::get_app_dir();
+                let vanilla_backup_dir = base_app_dir.join("vanilla_backup").join("map").join("m18");
+                let deployer_cfg = crate::deployer::Deployer::load_config();
+                let game_dir = PathBuf::from(&deployer_cfg.game_path).join("map").join("m18");
+
+                for bhd_name in &["m18_0000.tpfbhd", "m18_0001.tpfbhd", "m18_0002.tpfbhd", "m18_0003.tpfbhd", "GI_EnvM_m18.tpfbhd"] {
+                    let bdt_name = bhd_name.replace(".tpfbhd", ".tpfbdt");
+                    let merged_bhd = merged_m18_dir.join(bhd_name);
+                    let merged_bdt = merged_m18_dir.join(&bdt_name);
+
+                    if merged_bhd.exists() && merged_bdt.exists() {
+                        let (v_bhd, v_bdt) = if vanilla_backup_dir.join(bhd_name).exists() && vanilla_backup_dir.join(&bdt_name).exists() {
+                            (vanilla_backup_dir.join(bhd_name), vanilla_backup_dir.join(&bdt_name))
+                        } else if game_dir.join(bhd_name).exists() && game_dir.join(&bdt_name).exists() {
+                            (game_dir.join(bhd_name), game_dir.join(&bdt_name))
+                        } else {
+                            continue;
+                        };
+
+                        if let (Ok(m_bhd_bytes), Ok(m_bdt_bytes), Ok(v_bhd_bytes), Ok(v_bdt_bytes)) = (
+                            fs::read(&merged_bhd),
+                            fs::read(&merged_bdt),
+                            fs::read(&v_bhd),
+                            fs::read(&v_bdt),
+                        ) {
+                            if let (Ok(mut m_archive), Ok(v_archive)) = (
+                                crate::formats::BhdBdtArchive::parse(&m_bhd_bytes, &m_bdt_bytes),
+                                crate::formats::BhdBdtArchive::parse(&v_bhd_bytes, &v_bdt_bytes),
+                            ) {
+                                let infilled = m_archive.infill_missing_from(&v_archive);
+                                if let Ok((new_bhd, new_bdt)) = m_archive.to_bytes() {
+                                    let _ = fs::write(&merged_bhd, new_bhd);
+                                    let _ = fs::write(&merged_bdt, new_bdt);
+                                    println!("[Merger] Hybrid Asylum Infill: Normalized and infilled {} texture(s) into '{}'.", infilled, bhd_name);
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
