@@ -2,6 +2,9 @@
 name = "souls_conflict"
 version = "2.1.2"
 edition = "2024"
+license = "MIT"
+description = "Fast, deep conflict detector and merger for Dark Souls Remastered mods"
+repository = "https://github.com/nobodyttk/SoulsConflict-Mod-Manager-and-Merger-for-Dark-Souls-Remastered"
 
 [dependencies]
 flate2 = "1.1.10"

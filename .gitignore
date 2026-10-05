@@ -16,3 +16,5 @@ vanilla_backup/
 __pycache__/
 *.pyc
 *.exe
+.omo/
+.codegraph/

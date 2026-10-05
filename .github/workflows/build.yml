@@ -1,0 +1,87 @@
+name: Build and Package Release
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build Windows Release
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Rust Cache
+        uses: Swatinem/rust-cache@v2
+
+      - name: Build release binary
+        run: cargo build --release
+
+      - name: Prepare portable package
+        id: package
+        shell: powershell
+        run: |
+          $version = (Get-Content Cargo.toml | Select-String -Pattern '^version = "(.*)"').Matches.Groups[1].Value
+          if (-not $version) { $version = "2.1.2" }
+          Write-Host "Packaging SoulsConflict v$version..."
+
+          $pkgDir = "dist\SoulsConflict-v$version-Portable"
+          New-Item -ItemType Directory -Path $pkgDir -Force | Out-Null
+          New-Item -ItemType Directory -Path "$pkgDir\mods" -Force | Out-Null
+          New-Item -ItemType Directory -Path "$pkgDir\vanilla_backup" -Force | Out-Null
+
+          Copy-Item "target\release\souls_conflict.exe" -Destination "$pkgDir\SoulsConflict.exe"
+          Copy-Item "static" -Destination "$pkgDir\static" -Recurse
+          Copy-Item "README_NEXUS.txt" -Destination "$pkgDir\README.txt"
+          Copy-Item "LICENSE" -Destination "$pkgDir\LICENSE.txt"
+
+          $zipName = "SoulsConflict-v$version-Portable.zip"
+          $zipPath = "dist\$zipName"
+          Compress-Archive -Path "$pkgDir\*" -DestinationPath $zipPath -CompressionLevel Optimal
+
+          $exeHash = (Get-FileHash "$pkgDir\SoulsConflict.exe" -Algorithm SHA256).Hash
+          $zipHash = (Get-FileHash $zipPath -Algorithm SHA256).Hash
+
+          $checksums = @"
+          # SoulsConflict v$version SHA-256 Checksums
+          $exeHash  SoulsConflict.exe
+          $zipHash  $zipName
+          "@
+          Set-Content -Path "dist\SHA256_CHECKSUMS.txt" -Value $checksums -Encoding UTF8
+
+          echo "VERSION=$version" >> $env:GITHUB_OUTPUT
+          echo "ZIP_PATH=$zipPath" >> $env:GITHUB_OUTPUT
+          echo "ZIP_NAME=$zipName" >> $env:GITHUB_OUTPUT
+
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: SoulsConflict-Portable
+          path: |
+            dist/*.zip
+            dist/*.txt
+          retention-days: 14
+
+      - name: Publish to GitHub Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            dist/*.zip
+            dist/SHA256_CHECKSUMS.txt
+          generate_release_notes: true
