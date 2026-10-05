@@ -75,4 +75,9 @@ cargo build --release
 
 ## 📝 License
 
-This project is open-source and free to use. Mods and files merged by this tool belong to their respective creators.
+This project is open-source licensed under the [MIT License](LICENSE).
+
+## 🛡️ Code Signing
+
+Free code signing is provided by the [SignPath Foundation](https://signpath.org), a non-profit organization supporting open source software.
+
